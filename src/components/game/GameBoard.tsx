@@ -130,7 +130,7 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
       />
 
       {/* Main game area */}
-      <div className="flex-1 container mx-auto px-4 py-6">
+      <div className="flex-1 w-full max-w-none px-4 py-6">
         {/* Back button and instructions */}
         <div className="flex items-center justify-between mb-4">
           <Button variant="ghost" onClick={onExit} className="gap-2">
