@@ -1,131 +1,198 @@
 
 
-# Plan: Joc Interactiv de Asamblare PC
+# Plan: Simulator Real de Asamblare PC cu Drag & Drop
 
-## Rezumat
-Vom implementa un joc educativ de tip drag & drop unde elevii vor plasa componente hardware pe o placă de bază schematică. Jocul va include 3 moduri (Training, Challenge, Ranked), validare a ordinii de asamblare, feedback vizual și sistem de punctaj.
+## Problema Actuală
+
+Implementarea curentă folosește un sistem **click-to-select → click-to-place**:
+1. Click pe componentă din listă → devine selectată
+2. Click pe zona de pe placă → componenta "apare" acolo
+
+Acest sistem **nu oferă senzația de asamblare reală**.
 
 ---
 
-## Ce vom construi
+## Soluția: Drag & Drop Nativ cu Urmărire Cursor
 
-### 1. Arhitectura Jocului
+Vom implementa un sistem în care **componenta urmărește cursorul** în timp ce este trasă, și se "lipește" (snap) în slot când este plasată corect.
 
-```text
-Game.tsx (selectie mod)
-    └── GameBoard.tsx (jocul propriu-zis)
-            ├── MotherboardSVG.tsx (placa de baza cu zone de drop)
-            ├── ComponentCard.tsx (piesa draggable)
-            ├── GameHUD.tsx (scor, timer, vieti, hints)
-            └── GameEndScreen.tsx (rezultat final)
-```
+---
 
-### 2. Componentele Hardware de Asamblat
+## Ce Vom Construi
 
-| Componenta | Zona pe Placa | Ordine | Dependenta |
-|------------|---------------|--------|------------|
-| CPU | Socket central | 1 | - |
-| Cooler CPU | Pe CPU | 2 | CPU |
-| RAM x2 | Sloturi RAM | 3-4 | - |
-| SSD M.2 | Slot M.2 | 5 | - |
-| GPU | PCIe x16 | 6 | - |
-| Cablu ATX 24-pin | Conector ATX | 7 | - |
-| Cablu EPS 8-pin | Conector EPS | 8 | - |
-| Ventilatoare x2 | Fan headers | 9-10 | - |
+### 1. Componenta Draggable Reală
 
-### 3. Mecanici de Joc
+**Comportament:**
+- La apăsare mouse (mousedown) → componenta "se ridică" (scale up, shadow mare)
+- În timp ce tragi → un "ghost" al componentei urmărește cursorul pe tot ecranul
+- La eliberare pe zonă corectă → animație snap-in, componentă rămâne acolo
+- La eliberare în loc greșit → componentă se întoarce la poziția inițială (animație bounce-back)
 
-**Drag & Drop:**
-- Click pe componenta → componenta devine selectata
-- Drag spre zona corecta → snap-in cu animatie bounce
-- Click alternativ: click piesa, apoi click zona
+### 2. Placă de Bază Interactivă
 
-**Validari:**
-- Verificare zona corecta (CPU in socket, RAM in slot RAM)
-- Verificare ordine (cooler doar dupa CPU)
-- Feedback imediat: verde = corect, rosu = gresit
+**Zonele de drop vor avea:**
+- **Stare normală**: contur dashed, culoare subtilă
+- **La hover cu componentă trasă**: glow puternic, puls, mesaj "Plasează aici"
+- **Zonă corectă vs greșită**: verde/roșu instant la hover
+- **După plasare**: componenta apare vizual în slot, animație "snap"
 
-**Moduri:**
-- **Training:** fara timer, hint-uri nelimitate, explicatii
-- **Challenge:** timer 5 min, 3 vieti, -30 puncte/gresit
-- **Ranked:** timer 4 min, fara hints, scor pentru clasament
+### 3. Feedback Vizual Bogat
+
+| Acțiune | Feedback Vizual |
+|---------|-----------------|
+| Începe drag | Componentă se "ridică", shadow mare, cursor: grabbing |
+| Tragi peste zonă corectă | Zona pulsează verde, glow neon |
+| Tragi peste zonă greșită | Zona tremură ușor roșu |
+| Drop corect | Animație snap-in, confetti micro, +100 floating |
+| Drop greșit | Shake pe placă, componentă revine, -30 floating |
+| Drop în gol | Componentă revine lin la poziție |
+
+### 4. Ghost Component (Urmărire Cursor)
+
+Un element care:
+- Apare când începe drag-ul
+- Este poziționat absolut, urmărește coordonatele mouse-ului
+- Afișează imaginea componentei cu transparență
+- Dispare la drop
 
 ---
 
 ## Detalii Tehnice
 
-### Fisiere Noi
+### Fișiere Modificate
 
-1. **`src/components/game/GameBoard.tsx`** - Componenta principala a jocului
-2. **`src/components/game/MotherboardSVG.tsx`** - Placa de baza SVG cu zone interactive
-3. **`src/components/game/ComponentCard.tsx`** - Componenta draggable pentru fiecare piesa
-4. **`src/components/game/DropZone.tsx`** - Zona de plasare pe placa
-5. **`src/components/game/GameHUD.tsx`** - Interfata cu scor, timer, vieti
-6. **`src/components/game/GameEndScreen.tsx`** - Ecran final cu rezultate
-7. **`src/hooks/useGameState.ts`** - Hook pentru state management joc
-8. **`src/data/gameComponents.ts`** - Definitii componente si zone
+1. **`src/components/game/DraggableComponent.tsx`** (NOU)
+   - Componentă care se poate trage fizic
+   - Folosește HTML5 Drag API + mouse events pentru smooth tracking
+   - State: isDragging, startPosition, currentPosition
 
-### Placa de Baza (SVG Schematic)
+2. **`src/components/game/DropZoneOverlay.tsx`** (NOU)
+   - Layer transparent peste placa de bază
+   - Detectează când o componentă este trasă peste o zonă
+   - Oferă feedback vizual în timp real
 
-Design simplificat cu zone colorate:
-- Socket CPU: patrat central, culoare cyan
-- Sloturi RAM: 4 dreptunghiuri verticale, culoare verde
-- PCIe x16: dreptunghi lung orizontal, culoare violet
-- M.2: dreptunghi mic, culoare portocaliu
-- Conectori ATX/EPS: zone in dreapta, culoare galben
-- Fan headers: cercuri mici in colturi
+3. **`src/components/game/GameBoard.tsx`** (MODIFICAT)
+   - Adaugă state pentru dragging: draggedComponent, dragPosition
+   - Render ghost component când isDragging
+   - Gestionează drop events
 
-### State Management (useGameState hook)
+4. **`src/components/game/MotherboardSVG.tsx`** (MODIFICAT)
+   - Zonele devin drop targets reale
+   - Highlight dinamic bazat pe componenta trasă
+   - Animații la hover/drop
+
+5. **`src/hooks/useDragAndDrop.ts`** (NOU)
+   - Hook custom pentru logica de drag & drop
+   - Trackează poziția mouse-ului
+   - Detectează coliziuni cu zonele
+
+### Logica de Drag & Drop
 
 ```text
-GameState:
-  - mode: "training" | "challenge" | "ranked"
-  - phase: "playing" | "paused" | "completed"
-  - score: number
-  - timeRemaining: number (pentru Challenge/Ranked)
-  - lives: number (pentru Challenge)
-  - hintsUsed: number
-  - placedComponents: string[]
-  - currentStep: number
-  - mistakes: number
+1. MOUSE DOWN pe componentă:
+   → setDraggedComponent(componentId)
+   → setIsDragging(true)
+   → Salvează offset de la cursor la centrul componentei
+
+2. MOUSE MOVE (când isDragging):
+   → Actualizează ghostPosition = { x: mouseX - offsetX, y: mouseY - offsetY }
+   → Verifică dacă ghost overlaps cu vreo zonă
+   → Dacă da → highlight zona respectivă
+
+3. MOUSE UP:
+   → Verifică zona curentă
+   → Dacă zonă validă și componentă corectă:
+      → placeComponent(componentId, zoneId)
+      → Animație snap-in
+   → Dacă zonă invalidă sau loc gol:
+      → Animație return-to-origin
+   → setIsDragging(false)
 ```
 
-### Sistem de Punctaj
+### Calculul Coliziunii
 
-- +100 puncte: plasare corecta
-- -30 puncte: gresit (doar Challenge/Ranked)
-- Bonus timp: `(timeRemaining / totalTime) * 200`
-- Bonus perfect: x2 daca 0 greseli
-- Bonus no-hints: +150 daca 0 hints folosite
+Pentru a detecta dacă componenta trasă este "peste" o zonă:
 
----
-
-## Experienta Utilizator
-
-1. **Selectie mod** (pagina existenta Game.tsx) → click "Incepe Jocul"
-2. **Ecran de joc** cu:
-   - Stanga: lista componentelor disponibile
-   - Centru: placa de baza interactiva
-   - Sus: HUD cu scor/timer/vieti
-3. **Interactiune:**
-   - Hover pe zona → glow + tooltip educativ
-   - Drag componenta → shadow urmareste cursorul
-   - Drop pe zona corecta → animatie bounce + sunet + "+100"
-   - Drop gresit → shake + mesaj de eroare
-4. **La finalizare:** ecran cu scor total, breakdown, butoane "Joaca din nou" / "Leaderboard"
+```text
+function isOverZone(ghostRect, zoneRect):
+   centerX = ghostRect.x + ghostRect.width / 2
+   centerY = ghostRect.y + ghostRect.height / 2
+   
+   return (
+     centerX >= zoneRect.x &&
+     centerX <= zoneRect.x + zoneRect.width &&
+     centerY >= zoneRect.y &&
+     centerY <= zoneRect.y + zoneRect.height
+   )
+```
 
 ---
 
-## Pasi de Implementare
+## Experiența Utilizatorului
 
-1. Creez structura de date pentru componente si zone (`gameComponents.ts`)
-2. Construiesc placa de baza SVG cu zone interactive (`MotherboardSVG.tsx`)
-3. Implementez componentele draggable (`ComponentCard.tsx`, `DropZone.tsx`)
-4. Creez hook-ul pentru game state (`useGameState.ts`)
-5. Asamblam totul in `GameBoard.tsx` cu logica de drag & drop
-6. Adaug HUD-ul cu timer/scor/vieti (`GameHUD.tsx`)
-7. Creez ecranul de final (`GameEndScreen.tsx`)
-8. Integrez in pagina Game.tsx existenta
-9. Adaug animatii si feedback vizual
-10. Testez toate cele 3 moduri de joc
+1. **Componente în stânga** - Elevul vede lista cu imagini ale componentelor
+2. **Apucă o componentă** - Click lung sau drag start, componenta "se ridică"
+3. **Trage fizic** - Un ghost al componentei urmărește cursorul
+4. **Vede feedback** - Zonele se aprind când componenta este trasă peste ele
+5. **Plasează** - Eliberează mouse-ul, componenta se "lipește" cu animație
+6. **Simte progresul** - Vede PC-ul asamblându-se pas cu pas
+
+---
+
+## Animații CSS Noi
+
+```text
+@keyframes snap-in:
+  0% → scale(1.2), opacity(0.8)
+  50% → scale(0.95)
+  100% → scale(1), opacity(1)
+
+@keyframes shake-error:
+  0%, 100% → translateX(0)
+  20%, 60% → translateX(-5px)
+  40%, 80% → translateX(5px)
+
+@keyframes bounce-back:
+  0% → position curentă
+  50% → overshoot ușor
+  100% → poziție originală
+
+@keyframes glow-valid:
+  0%, 100% → box-shadow normal
+  50% → box-shadow puternic verde
+```
+
+---
+
+## Suport Touch (Mobil)
+
+Aceleași mecanici, dar folosind:
+- `touchstart` în loc de `mousedown`
+- `touchmove` în loc de `mousemove`  
+- `touchend` în loc de `mouseup`
+- `touch.clientX/Y` pentru coordonate
+
+---
+
+## Pași de Implementare
+
+1. Creez hook-ul `useDragAndDrop.ts` cu logica de tracking mouse
+2. Construiesc `DraggableComponent.tsx` cu support pentru drag fizic
+3. Adaug `DropZoneOverlay.tsx` pentru detectarea drop-ului
+4. Modific `GameBoard.tsx` pentru a randa ghost-ul și a gestiona drop
+5. Actualizez `MotherboardSVG.tsx` pentru highlight dinamic
+6. Adaug animațiile CSS (snap-in, shake, glow)
+7. Implementez feedback vizual (+100/-30 floating)
+8. Adaug suport pentru touch events
+9. Testez pe desktop și mobil
+
+---
+
+## Rezultat Final
+
+Un **simulator de asamblare PC** în care elevii:
+- Trag fizic componentele cu mouse-ul
+- Văd zonele iluminându-se când sunt aproape
+- Simt satisfacția plasării corecte (snap + sunet + animație)
+- Înțeleg vizual cum se construiește un PC
 
