@@ -1,19 +1,65 @@
-import { DROP_ZONES, ZoneId, ComponentId, GAME_COMPONENTS } from "@/data/gameComponents";
+import { DROP_ZONES, ZoneId, ComponentId, GAME_COMPONENTS, GAME_CONFIG } from "@/data/gameComponents";
 import { cn } from "@/lib/utils";
+import { GameMode } from "@/hooks/useGameState";
 
 interface DropZoneOverlayProps {
   draggedComponent: ComponentId | null;
   hoveredZone: ZoneId | null;
   isValidDrop: boolean;
   placedComponents: ComponentId[];
+  gameMode?: GameMode;
 }
 
 const DropZoneOverlay = ({
   draggedComponent,
   hoveredZone,
   isValidDrop,
-  placedComponents
+  placedComponents,
+  gameMode = "training"
 }: DropZoneOverlayProps) => {
+  // Get mode config
+  const modeConfig = GAME_CONFIG[gameMode];
+  
+  // In Ranked mode, don't show any overlay hints
+  if (!modeConfig.showZoneHints && !modeConfig.showDropIndicators) {
+    // Only show minimal feedback when actually hovering over a zone
+    if (!draggedComponent || !hoveredZone) return null;
+    
+    // Minimal feedback only
+    const zone = DROP_ZONES.find(z => z.id === hoveredZone);
+    if (!zone) return null;
+    
+    return (
+      <svg
+        viewBox="0 0 450 360"
+        className="absolute inset-0 w-full h-full pointer-events-none z-10"
+      >
+        <g>
+          <rect
+            x={zone.x - 2}
+            y={zone.y - 2}
+            width={zone.width + 4}
+            height={zone.height + 4}
+            rx="6"
+            fill={isValidDrop ? "hsl(var(--accent) / 0.2)" : "hsl(var(--destructive) / 0.2)"}
+            stroke={isValidDrop ? "hsl(var(--accent))" : "hsl(var(--destructive))"}
+            strokeWidth="2"
+          />
+          <text
+            x={zone.x + zone.width / 2}
+            y={zone.y + zone.height / 2 + 4}
+            textAnchor="middle"
+            fill={isValidDrop ? "hsl(var(--accent))" : "hsl(var(--destructive))"}
+            fontSize="14"
+            fontWeight="bold"
+          >
+            {isValidDrop ? "✓" : "✗"}
+          </text>
+        </g>
+      </svg>
+    );
+  }
+  
   if (!draggedComponent) return null;
 
   return (

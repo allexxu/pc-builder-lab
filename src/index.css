@@ -391,6 +391,74 @@
       transform: translateX(10px);
     }
   }
+
+  /* ===== 3D COMPONENT ANIMATIONS ===== */
+  
+  /* Snap-in animation with bounce effect */
+  .animate-snap-in-3d {
+    animation: snapIn3D 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  @keyframes snapIn3D {
+    0% {
+      transform: scale(1.3) translateY(-10px);
+      opacity: 0;
+      filter: drop-shadow(0 20px 30px rgba(0,0,0,0.5));
+    }
+    50% {
+      transform: scale(0.95) translateY(2px);
+      filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));
+    }
+    75% {
+      transform: scale(1.02) translateY(-1px);
+    }
+    100% {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25));
+    }
+  }
+
+  /* Settle animation - micro adjustment after snap */
+  .animate-settle {
+    animation: settle 0.3s ease-out 0.5s forwards;
+  }
+
+  @keyframes settle {
+    0% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(1px);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  /* Glow pulse for mounted components */
+  .animate-glow-pulse {
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes glowPulse {
+    0%, 100% {
+      filter: drop-shadow(0 0 8px hsl(var(--accent) / 0.4));
+    }
+    50% {
+      filter: drop-shadow(0 0 15px hsl(var(--accent) / 0.7));
+    }
+  }
+
+  /* Hover lift for placed components */
+  .component-hover-lift {
+    transition: transform 0.2s ease-out, filter 0.2s ease-out;
+  }
+
+  .component-hover-lift:hover {
+    transform: translateY(-2px);
+    filter: drop-shadow(0 8px 15px rgba(0,0,0,0.35)) brightness(1.1);
+  }
 }
 
 @layer utilities {

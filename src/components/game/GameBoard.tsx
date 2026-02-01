@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useGameState, GameMode } from "@/hooks/useGameState";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
-import { GAME_COMPONENTS, ComponentId, ZoneId } from "@/data/gameComponents";
+import { GAME_COMPONENTS, GAME_CONFIG, ComponentId, ZoneId } from "@/data/gameComponents";
 import MotherboardSVG from "./MotherboardSVG";
 import DraggableComponent from "./DraggableComponent";
 import GhostComponent from "./GhostComponent";
@@ -258,12 +258,13 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
                   width: `${100 / (zoomLevel / 100)}%`,
                 }}
               >
-                {/* Drop zone overlay - shows when dragging */}
+              {/* Drop zone overlay - shows when dragging */}
                 <DropZoneOverlay
                   draggedComponent={dragState.draggedComponent}
                   hoveredZone={dragState.hoveredZone}
                   isValidDrop={dragState.isValidDrop}
                   placedComponents={state.placedComponents}
+                  gameMode={state.mode}
                 />
 
                 <MotherboardSVG
@@ -272,6 +273,7 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
                   highlightedZone={dragState.hoveredZone}
                   onZoneClick={() => {}} // Disabled - using drag now
                   onZoneHover={() => {}} // Disabled - drag handles this
+                  gameMode={state.mode}
                 />
                 
                 {/* Floating score indicator */}

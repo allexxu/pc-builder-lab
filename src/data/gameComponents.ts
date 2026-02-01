@@ -292,21 +292,30 @@ export const GAME_CONFIG = {
     lives: Infinity,
     hintsEnabled: true,
     penaltyPoints: 0,
-    showExplanations: true
+    showExplanations: true,
+    showZoneHints: true,      // Show zone highlights when dragging
+    showZoneLabels: true,     // Show zone names (CPU Socket, etc.)
+    showDropIndicators: true  // Show "PLASEAZĂ AICI" indicators
   },
   challenge: {
     timeLimit: 300, // 5 minutes
     lives: 3,
     hintsEnabled: true,
     penaltyPoints: 30,
-    showExplanations: false
+    showExplanations: false,
+    showZoneHints: true,
+    showZoneLabels: true,
+    showDropIndicators: false // More subtle indicators
   },
   ranked: {
     timeLimit: 240, // 4 minutes
     lives: Infinity,
     hintsEnabled: false,
     penaltyPoints: 30,
-    showExplanations: false
+    showExplanations: false,
+    showZoneHints: false,      // NO zone highlights - pure skill
+    showZoneLabels: false,     // NO zone labels visible
+    showDropIndicators: false  // NO drop indicators
   }
 };
 
