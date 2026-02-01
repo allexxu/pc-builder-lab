@@ -48,13 +48,13 @@ const Footer = () => {
             <h4 className="font-semibold mb-4 text-foreground">Resurse</h4>
             <ul className="space-y-2">
               <li>
-                <Link to="/despre" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Despre Proiect
+                <Link to="/quiz" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  TechQuiz Live
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Contact
+                <Link to="/profil" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  Profilul Meu
                 </Link>
               </li>
               <li>

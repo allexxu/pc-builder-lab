@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Lessons from "./pages/Lessons";
+import LessonDetail from "./pages/LessonDetail";
 import Game from "./pages/Game";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
@@ -34,6 +35,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/lectii" element={<Lessons />} />
+            <Route path="/lectii/:slug" element={<LessonDetail />} />
             <Route path="/joc" element={<Game />} />
             <Route path="/clasament" element={<Leaderboard />} />
             <Route path="/profil" element={<Profile />} />
