@@ -1,16 +1,5 @@
 import { GameComponent, ComponentId } from "@/data/gameComponents";
 import { cn } from "@/lib/utils";
-import { 
-  Cpu, 
-  Fan, 
-  MemoryStick, 
-  HardDrive, 
-  Monitor, 
-  Cable, 
-  Plug, 
-  Wind,
-  LucideIcon
-} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ComponentCardProps {
@@ -23,17 +12,6 @@ interface ComponentCardProps {
   showHint?: boolean;
 }
 
-const iconMap: Record<string, LucideIcon> = {
-  Cpu: Cpu,
-  Fan: Fan,
-  MemoryStick: MemoryStick,
-  HardDrive: HardDrive,
-  Monitor: Monitor,
-  Cable: Cable,
-  Plug: Plug,
-  Wind: Wind
-};
-
 const ComponentCard = ({
   component,
   isSelected,
@@ -43,7 +21,6 @@ const ComponentCard = ({
   onSelect,
   showHint = false
 }: ComponentCardProps) => {
-  const Icon = iconMap[component.icon] || Cpu;
 
   if (isPlaced) {
     return null; // Don't render placed components
@@ -67,18 +44,22 @@ const ComponentCard = ({
               backgroundColor: isSelected ? `${component.color}15` : undefined
             }}
           >
-            {/* Component Icon */}
+            {/* Component Image */}
             <div 
               className={cn(
-                "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                "transition-colors duration-200"
+                "w-14 h-14 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden",
+                "transition-transform duration-200 bg-background/50"
               )}
               style={{ 
-                backgroundColor: `${component.color}20`,
-                color: component.color
+                borderColor: component.color,
+                borderWidth: "1px"
               }}
             >
-              <Icon className="w-5 h-5" />
+              <img 
+                src={component.image} 
+                alt={component.name}
+                className="w-full h-full object-cover"
+              />
             </div>
 
             {/* Component Info */}
@@ -106,12 +87,21 @@ const ComponentCard = ({
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="left" className="max-w-[250px]">
-          <p className="font-semibold">{component.name}</p>
-          <p className="text-xs text-muted-foreground mt-1">{component.hint}</p>
-          {!canPlace && reason && (
-            <p className="text-xs text-destructive mt-2">⚠️ {reason}</p>
-          )}
+        <TooltipContent side="left" className="max-w-[280px]">
+          <div className="flex gap-3">
+            <img 
+              src={component.image} 
+              alt={component.name}
+              className="w-16 h-16 rounded object-cover flex-shrink-0"
+            />
+            <div>
+              <p className="font-semibold">{component.name}</p>
+              <p className="text-xs text-muted-foreground mt-1">{component.hint}</p>
+              {!canPlace && reason && (
+                <p className="text-xs text-destructive mt-2">⚠️ {reason}</p>
+              )}
+            </div>
+          </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

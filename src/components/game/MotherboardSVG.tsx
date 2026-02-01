@@ -1,4 +1,4 @@
-import { DROP_ZONES, ZoneId, ComponentId } from "@/data/gameComponents";
+import { DROP_ZONES, GAME_COMPONENTS, ZoneId, ComponentId } from "@/data/gameComponents";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -27,6 +27,12 @@ const MotherboardSVG = ({
     if (!selectedComponent) return false;
     const zone = DROP_ZONES.find(z => z.id === zoneId);
     return zone?.acceptsComponent === selectedComponent;
+  };
+
+  const getComponentForZone = (zoneId: ZoneId) => {
+    const zone = DROP_ZONES.find(z => z.id === zoneId);
+    if (!zone) return null;
+    return GAME_COMPONENTS.find(c => c.id === zone.acceptsComponent);
   };
 
   return (
@@ -60,6 +66,18 @@ const MotherboardSVG = ({
                 opacity="0.3"
               />
             </pattern>
+            {/* Clip paths for component images */}
+            {DROP_ZONES.map(zone => (
+              <clipPath key={`clip-${zone.id}`} id={`clip-${zone.id}`}>
+                <rect
+                  x={zone.x}
+                  y={zone.y}
+                  width={zone.width}
+                  height={zone.height}
+                  rx="4"
+                />
+              </clipPath>
+            ))}
           </defs>
           <rect
             x="20"
@@ -123,6 +141,7 @@ const MotherboardSVG = ({
             const isOccupied = isZoneOccupied(zone.id);
             const isHighlighted = highlightedZone === zone.id;
             const canDrop = canDropOnZone(zone.id);
+            const component = getComponentForZone(zone.id);
             
             // Don't show cooler mount if CPU not placed
             if (zone.id === "cooler-mount" && !placedComponents.includes("cpu")) {
@@ -142,17 +161,18 @@ const MotherboardSVG = ({
                     onMouseLeave={() => onZoneHover(null)}
                     style={{ cursor: isOccupied ? "default" : "pointer" }}
                   >
+                    {/* Zone background */}
                     <rect
                       x={zone.x}
                       y={zone.y}
                       width={zone.width}
                       height={zone.height}
                       rx="4"
-                      fill={isOccupied ? zone.color : "hsl(var(--muted))"}
+                      fill={isOccupied ? "hsl(var(--background))" : "hsl(var(--muted))"}
                       stroke={zone.color}
                       strokeWidth={isHighlighted || canDrop ? 3 : 2}
                       strokeDasharray={isOccupied ? "0" : "5,3"}
-                      opacity={isOccupied ? 0.9 : 0.7}
+                      opacity={isOccupied ? 1 : 0.7}
                       className={cn(
                         "transition-all duration-200",
                         isHighlighted && !isOccupied && "animate-pulse",
@@ -161,10 +181,27 @@ const MotherboardSVG = ({
                       style={{
                         filter: (isHighlighted || canDrop) && !isOccupied 
                           ? `drop-shadow(0 0 10px ${zone.color})` 
-                          : "none"
+                          : isOccupied 
+                            ? `drop-shadow(0 0 8px ${zone.color})`
+                            : "none"
                       }}
                     />
-                    {/* Zone label */}
+                    
+                    {/* Placed component image */}
+                    {isOccupied && component && (
+                      <image
+                        href={component.image}
+                        x={zone.x}
+                        y={zone.y}
+                        width={zone.width}
+                        height={zone.height}
+                        preserveAspectRatio="xMidYMid slice"
+                        clipPath={`url(#clip-${zone.id})`}
+                        className="animate-scale-in"
+                      />
+                    )}
+                    
+                    {/* Zone label (only when empty) */}
                     {!isOccupied && (
                       <text
                         x={zone.x + zone.width / 2}
@@ -177,25 +214,28 @@ const MotherboardSVG = ({
                         {zone.name.length > 12 ? zone.name.slice(0, 10) + ".." : zone.name}
                       </text>
                     )}
-                    {/* Placed component indicator */}
-                    {isOccupied && (
-                      <text
-                        x={zone.x + zone.width / 2}
-                        y={zone.y + zone.height / 2 + 4}
-                        textAnchor="middle"
-                        fill="hsl(var(--foreground))"
-                        fontSize="10"
-                        fontWeight="bold"
-                      >
-                        ✓
-                      </text>
-                    )}
                   </g>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[200px]">
-                  <p className="font-semibold">{zone.name}</p>
-                  <p className="text-xs text-muted-foreground">{zone.description}</p>
-                  {isOccupied && <p className="text-xs text-accent mt-1">✓ Componentă plasată</p>}
+                <TooltipContent side="top" className="max-w-[250px]">
+                  {component && isOccupied ? (
+                    <div className="flex gap-3">
+                      <img 
+                        src={component.image} 
+                        alt={component.name}
+                        className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      />
+                      <div>
+                        <p className="font-semibold text-accent">{component.name}</p>
+                        <p className="text-xs text-muted-foreground">{component.description}</p>
+                        <p className="text-xs text-accent mt-1">✓ Montat corect</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="font-semibold">{zone.name}</p>
+                      <p className="text-xs text-muted-foreground">{zone.description}</p>
+                    </div>
+                  )}
                 </TooltipContent>
               </Tooltip>
             );
