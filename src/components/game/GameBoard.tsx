@@ -158,9 +158,9 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
         </div>
 
         {/* Game content */}
-        <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
           {/* Components panel - Draggable */}
-          <div className="order-2 xl:order-1">
+          <div className="order-2 lg:order-1">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-primary animate-pulse" />
               Componente Disponibile
@@ -198,7 +198,7 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
           </div>
 
           {/* Motherboard area with drop zones */}
-          <div className="order-1 xl:order-2 flex flex-col items-center w-full">
+          <div className="order-1 lg:order-2 flex flex-col items-center w-full">
             <h3 className="text-lg font-semibold mb-4 text-center">
               Placă de Bază
               {dragState.isDragging && (
