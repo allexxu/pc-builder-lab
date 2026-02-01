@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import QuizLayout from "@/components/quiz/QuizLayout";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { generateGamePin } from "@/lib/quiz-utils";
 
@@ -36,7 +35,6 @@ interface Quiz {
 }
 
 const Dashboard = () => {
-  const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -44,15 +42,14 @@ const Dashboard = () => {
   const [startingQuiz, setStartingQuiz] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    const isAuthenticated = localStorage.getItem("teacher_authenticated") === "true";
+    if (!isAuthenticated) {
       navigate("/quiz/admin/login");
       return;
     }
 
-    if (user) {
-      fetchQuizzes();
-    }
-  }, [user, authLoading, navigate]);
+    fetchQuizzes();
+  }, [navigate]);
 
   const fetchQuizzes = async () => {
     const { data, error } = await supabase
@@ -65,11 +62,11 @@ const Dashboard = () => {
         created_at,
         questions(count)
       `)
-      .eq("created_by", user?.id)
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching quizzes:", error);
+      setLoading(false);
       return;
     }
 
@@ -110,7 +107,7 @@ const Dashboard = () => {
         .insert({
           quiz_id: quizId,
           game_pin: pin,
-          created_by: user?.id,
+          created_by: "00000000-0000-0000-0000-000000000000", // Teacher ID placeholder
           status: "waiting",
         })
         .select("game_pin")
@@ -155,12 +152,13 @@ const Dashboard = () => {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
+  const handleSignOut = () => {
+    localStorage.removeItem("teacher_authenticated");
+    localStorage.removeItem("teacher_email");
     navigate("/quiz");
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <QuizLayout>
         <div className="flex-1 flex items-center justify-center">
