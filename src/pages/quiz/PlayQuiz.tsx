@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Loader2, Clock, CheckCircle2 } from "lucide-react";
 import QuizLayout from "@/components/quiz/QuizLayout";
 import QuestionCard from "@/components/quiz/QuestionCard";
 import AnswerGrid from "@/components/quiz/AnswerGrid";
@@ -49,7 +49,7 @@ const PlayQuiz = () => {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [showResult, setShowResult] = useState(false);
+  const [hasAnswered, setHasAnswered] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
   const [pointsEarned, setPointsEarned] = useState(0);
@@ -57,7 +57,10 @@ const PlayQuiz = () => {
   const [showScorePopup, setShowScorePopup] = useState(false);
   const [totalScore, setTotalScore] = useState(0);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [gameStatus, setGameStatus] = useState<string>("waiting");
+  
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   // Load initial data
   useEffect(() => {
@@ -93,6 +96,8 @@ const PlayQuiz = () => {
       }
 
       setSession(sessionData);
+      sessionIdRef.current = sessionData.id;
+      setGameStatus(sessionData.status);
 
       // Fetch questions with answers
       const { data: questionsData } = await supabase
@@ -129,23 +134,31 @@ const PlayQuiz = () => {
       }
 
       // Fetch participants for leaderboard
-      const { data: participantsData } = await supabase
-        .from("participants")
-        .select("id, nickname, total_score")
-        .eq("session_id", sessionData.id)
-        .eq("is_active", true);
-
-      if (participantsData) {
-        setParticipants(participantsData);
-        const me = participantsData.find((p) => p.id === storedParticipantId);
-        if (me) setTotalScore(me.total_score);
-      }
+      await fetchParticipantsData(sessionData.id, storedParticipantId);
 
       setLoading(false);
     };
 
     fetchData();
   }, [gamePin, navigate]);
+
+  // Helper to fetch participants
+  const fetchParticipantsData = async (sessionId: string, myParticipantId: string | null) => {
+    const { data: participantsData } = await supabase
+      .from("participants")
+      .select("id, nickname, total_score")
+      .eq("session_id", sessionId)
+      .eq("is_active", true)
+      .order("total_score", { ascending: false });
+
+    if (participantsData) {
+      setParticipants(participantsData);
+      if (myParticipantId) {
+        const me = participantsData.find((p) => p.id === myParticipantId);
+        if (me) setTotalScore(me.total_score);
+      }
+    }
+  };
 
   // Subscribe to session changes
   useEffect(() => {
@@ -163,10 +176,11 @@ const PlayQuiz = () => {
           table: "game_sessions",
           filter: `game_pin=eq.${gamePin}`,
         },
-        (payload: RealtimePostgresChangesPayload<GameSession>) => {
+        async (payload: RealtimePostgresChangesPayload<GameSession>) => {
           console.log("[PlayQuiz] Realtime update received:", payload.new);
           const newSession = payload.new as GameSession;
           setSession(newSession);
+          setGameStatus(newSession.status);
 
           if (newSession.status === "finished") {
             console.log("[PlayQuiz] Game finished, redirecting to results");
@@ -176,11 +190,15 @@ const PlayQuiz = () => {
 
           if (newSession.status === "results") {
             console.log("[PlayQuiz] Showing results/leaderboard");
-            setShowLeaderboard(true);
-            setShowResult(true);
+            // Clear timer
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
             
             // Refresh participants for leaderboard
-            fetchParticipants();
+            if (sessionIdRef.current) {
+              await fetchParticipantsData(sessionIdRef.current, participantId);
+            }
           }
 
           if (
@@ -189,23 +207,21 @@ const PlayQuiz = () => {
           ) {
             console.log("[PlayQuiz] New question:", newSession.current_question);
             // Find the question from our cached questions list
-            setQuestions((prevQuestions) => {
-              const q = prevQuestions.find(
-                (q) => q.order_num === newSession.current_question
-              );
-              if (q) {
-                console.log("[PlayQuiz] Setting up question:", q.question);
-                // Reset for new question
-                setSelectedAnswer(null);
-                setShowResult(false);
-                setShowLeaderboard(false);
-                setShowScorePopup(false);
-                setCurrentQuestion(q);
-                setTimeRemaining(q.time_limit);
-                setQuestionStartTime(Date.now());
-              }
-              return prevQuestions;
-            });
+            const q = questions.find(
+              (q) => q.order_num === newSession.current_question
+            );
+            if (q) {
+              console.log("[PlayQuiz] Setting up question:", q.question);
+              // Reset for new question
+              setSelectedAnswer(null);
+              setHasAnswered(false);
+              setShowScorePopup(false);
+              setPointsEarned(0);
+              setIsCorrect(false);
+              setCurrentQuestion(q);
+              setTimeRemaining(q.time_limit);
+              setQuestionStartTime(Date.now());
+            }
           }
         }
       )
@@ -217,32 +233,24 @@ const PlayQuiz = () => {
       console.log("[PlayQuiz] Cleaning up subscription");
       supabase.removeChannel(channel);
     };
-  }, [gamePin, navigate]);
+  }, [gamePin, navigate, questions, participantId]);
 
-  // Fetch participants helper
-  const fetchParticipants = async () => {
-    if (!session) return;
-    const { data: participantsData } = await supabase
-      .from("participants")
-      .select("id, nickname, total_score")
-      .eq("session_id", session.id)
-      .eq("is_active", true);
-
-    if (participantsData) {
-      setParticipants(participantsData);
-    }
-  };
-
-  // Countdown timer
+  // Countdown timer - synced with question time limit
   useEffect(() => {
-    if (!currentQuestion || showResult || timeRemaining <= 0) return;
+    if (!currentQuestion || gameStatus !== "question" || timeRemaining <= 0) {
+      return;
+    }
 
-    const interval = setInterval(() => {
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    timerRef.current = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
           // Time's up - submit empty answer if not already answered
-          if (!selectedAnswer) {
+          if (!hasAnswered) {
             handleTimeUp();
           }
           return 0;
@@ -251,13 +259,17 @@ const PlayQuiz = () => {
       });
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [currentQuestion, showResult, selectedAnswer]);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [currentQuestion?.id, gameStatus]);
 
   const handleTimeUp = useCallback(async () => {
-    if (!participantId || !currentQuestion || selectedAnswer) return;
+    if (!participantId || !currentQuestion || hasAnswered) return;
 
-    setShowResult(true);
+    setHasAnswered(true);
     setPointsEarned(0);
     setIsCorrect(false);
     setShowScorePopup(true);
@@ -272,10 +284,10 @@ const PlayQuiz = () => {
     });
 
     setTimeout(() => setShowScorePopup(false), 2000);
-  }, [participantId, currentQuestion, selectedAnswer]);
+  }, [participantId, currentQuestion, hasAnswered]);
 
   const handleSelectAnswer = async (answerId: string) => {
-    if (!participantId || !currentQuestion || selectedAnswer) return;
+    if (!participantId || !currentQuestion || hasAnswered) return;
 
     const responseTime = Date.now() - questionStartTime;
     const answer = currentQuestion.answers.find((a) => a.id === answerId);
@@ -287,9 +299,9 @@ const PlayQuiz = () => {
     );
 
     setSelectedAnswer(answerId);
+    setHasAnswered(true);
     setIsCorrect(correct);
     setPointsEarned(points);
-    setShowResult(true);
     setShowScorePopup(true);
 
     if (correct) {
@@ -327,10 +339,10 @@ const PlayQuiz = () => {
   }
 
   // Waiting for first question
-  if (!currentQuestion) {
+  if (!currentQuestion || gameStatus === "waiting") {
     return (
       <QuizLayout showNav={false}>
-        <div className="flex-1 flex flex-col items-center justify-center px-4">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 animate-fade-in">
           <Loader2 className="w-16 h-16 animate-spin text-primary mb-4" />
           <p className="text-xl text-muted-foreground">
             Pregătește-te... Jocul începe!
@@ -340,11 +352,11 @@ const PlayQuiz = () => {
     );
   }
 
-  // Show mini-leaderboard between questions
-  if (showLeaderboard && showResult) {
+  // Show leaderboard between questions (when status is "results")
+  if (gameStatus === "results") {
     return (
       <QuizLayout showNav={false}>
-        <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 animate-fade-in">
           <h2 className="text-2xl font-bold mb-2">Clasament</h2>
           <p className="text-muted-foreground mb-6">
             Scorul tău: <span className="text-primary font-bold">{totalScore}</span> puncte
@@ -362,9 +374,61 @@ const PlayQuiz = () => {
     );
   }
 
+  // Answered state - waiting for results
+  if (hasAnswered && gameStatus === "question") {
+    return (
+      <QuizLayout showNav={false}>
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 animate-fade-in">
+          <div className="text-center mb-8">
+            {isCorrect ? (
+              <>
+                <CheckCircle2 className="w-20 h-20 text-primary mx-auto mb-4 animate-scale-in" />
+                <h2 className="text-3xl font-bold text-primary mb-2">Corect!</h2>
+                <p className="text-xl text-muted-foreground">
+                  +{pointsEarned} puncte
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 rounded-full bg-destructive/20 flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">❌</span>
+                </div>
+                <h2 className="text-3xl font-bold text-destructive mb-2">
+                  {selectedAnswer ? "Greșit!" : "Timpul a expirat!"}
+                </h2>
+                <p className="text-xl text-muted-foreground">
+                  0 puncte
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border/50">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <Clock className="w-5 h-5 animate-pulse" />
+              <span>Așteptăm ceilalți participanți...</span>
+            </div>
+          </div>
+
+          <div className="mt-6 text-lg font-semibold">
+            Scor total: <span className="text-primary">{totalScore}</span>
+          </div>
+        </div>
+
+        {/* Score Popup */}
+        <ScorePopup
+          points={pointsEarned}
+          isCorrect={isCorrect}
+          show={showScorePopup}
+        />
+      </QuizLayout>
+    );
+  }
+
+  // Active question state
   return (
     <QuizLayout showNav={false}>
-      <div className="flex-1 flex flex-col items-center px-4 py-6 gap-6">
+      <div className="flex-1 flex flex-col items-center px-4 py-6 gap-6 animate-fade-in">
         {/* Timer and Score */}
         <div className="flex items-center justify-between w-full max-w-4xl">
           <div className="text-lg font-semibold">
@@ -388,13 +452,9 @@ const PlayQuiz = () => {
         <AnswerGrid
           answers={currentQuestion.answers}
           selectedId={selectedAnswer}
-          correctId={
-            showResult
-              ? currentQuestion.answers.find((a) => a.is_correct)?.id
-              : undefined
-          }
-          showResult={showResult}
-          disabled={!!selectedAnswer || timeRemaining <= 0}
+          correctId={undefined}
+          showResult={false}
+          disabled={hasAnswered || timeRemaining <= 0}
           onSelect={handleSelectAnswer}
         />
 

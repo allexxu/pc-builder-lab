@@ -67,9 +67,9 @@ const Lobby = () => {
 
     fetchSession();
 
-    // Subscribe to game session changes
+    // Subscribe to game session changes - use unique channel name
     const sessionChannel = supabase
-      .channel(`game_session_${gamePin}`)
+      .channel(`game_session_lobby_${gamePin}_${Date.now()}`)
       .on(
         "postgres_changes",
         {
@@ -80,12 +80,15 @@ const Lobby = () => {
         },
         (payload: RealtimePostgresChangesPayload<GameSession>) => {
           const newRecord = payload.new as GameSession;
+          console.log("[Lobby] Session update received:", newRecord.status);
           if (newRecord.status !== "waiting") {
             navigate(`/quiz/play/${gamePin}`);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[Lobby] Subscription status:", status);
+      });
 
     // Subscribe to participants joining
     const participantsChannel = supabase
