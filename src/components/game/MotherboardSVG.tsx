@@ -1,6 +1,8 @@
-import { DROP_ZONES, GAME_COMPONENTS, ZoneId, ComponentId } from "@/data/gameComponents";
+import { DROP_ZONES, GAME_COMPONENTS, GAME_CONFIG, ZoneId, ComponentId } from "@/data/gameComponents";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { GameMode } from "@/hooks/useGameState";
+import PlacedComponent from "./PlacedComponent";
 
 interface MotherboardSVGProps {
   placedComponents: ComponentId[];
@@ -8,6 +10,7 @@ interface MotherboardSVGProps {
   highlightedZone: ZoneId | null;
   onZoneClick: (zoneId: ZoneId) => void;
   onZoneHover: (zoneId: ZoneId | null) => void;
+  gameMode?: GameMode;
 }
 
 const MotherboardSVG = ({
@@ -15,8 +18,12 @@ const MotherboardSVG = ({
   selectedComponent,
   highlightedZone,
   onZoneClick,
-  onZoneHover
+  onZoneHover,
+  gameMode = "training"
 }: MotherboardSVGProps) => {
+  
+  // Get mode config for visibility settings
+  const modeConfig = GAME_CONFIG[gameMode];
   
   const isZoneOccupied = (zoneId: ZoneId) => {
     const zone = DROP_ZONES.find(z => z.id === zoneId);
@@ -422,6 +429,23 @@ const MotherboardSVG = ({
               return null;
             }
 
+            // Render placed component with 3D effects
+            if (isOccupied && component) {
+              return (
+                <PlacedComponent
+                  key={zone.id}
+                  component={component}
+                  zone={zone}
+                  scale={scale}
+                  showBadge={modeConfig.showZoneLabels}
+                />
+              );
+            }
+
+            // Empty zone rendering - conditional based on game mode
+            const showZoneVisuals = modeConfig.showZoneHints;
+            const showLabel = modeConfig.showZoneLabels;
+
             return (
               <Tooltip key={zone.id}>
                 <TooltipTrigger asChild>
@@ -429,7 +453,7 @@ const MotherboardSVG = ({
                     onClick={() => !isOccupied && onZoneClick(zone.id)}
                     onMouseEnter={() => onZoneHover(zone.id)}
                     onMouseLeave={() => onZoneHover(null)}
-                    style={{ cursor: isOccupied ? "default" : "pointer" }}
+                    style={{ cursor: "pointer" }}
                   >
                     {/* Zone background */}
                     <rect
@@ -438,41 +462,25 @@ const MotherboardSVG = ({
                       width={scaledW}
                       height={scaledH}
                       rx="4"
-                      fill={isOccupied ? "hsl(var(--background))" : "hsl(var(--muted) / 0.3)"}
-                      stroke={zone.color}
-                      strokeWidth={isHighlighted || canDrop ? 3 : 2}
-                      strokeDasharray={isOccupied ? "0" : "6,4"}
-                      opacity={isOccupied ? 1 : 0.85}
+                      fill="hsl(var(--muted) / 0.3)"
+                      stroke={showZoneVisuals ? zone.color : "hsl(var(--border) / 0.3)"}
+                      strokeWidth={showZoneVisuals ? (isHighlighted || canDrop ? 3 : 2) : 1}
+                      strokeDasharray={showZoneVisuals ? "6,4" : "3,3"}
+                      opacity={showZoneVisuals ? 0.85 : 0.4}
                       className={cn(
                         "transition-all duration-200",
-                        isHighlighted && !isOccupied && "animate-pulse",
-                        canDrop && "animate-pulse"
+                        showZoneVisuals && isHighlighted && "animate-pulse",
+                        showZoneVisuals && canDrop && "animate-pulse"
                       )}
                       style={{
-                        filter: (isHighlighted || canDrop) && !isOccupied 
+                        filter: showZoneVisuals && (isHighlighted || canDrop)
                           ? `drop-shadow(0 0 12px ${zone.color})` 
-                          : isOccupied 
-                            ? `drop-shadow(0 0 10px ${zone.color})`
-                            : "none"
+                          : "none"
                       }}
                     />
                     
-                    {/* Placed component image */}
-                    {isOccupied && component && (
-                      <image
-                        href={component.image}
-                        x={scaledX}
-                        y={scaledY}
-                        width={scaledW}
-                        height={scaledH}
-                        preserveAspectRatio="xMidYMid slice"
-                        clipPath={`url(#clip-${zone.id})`}
-                        className="animate-scale-in"
-                      />
-                    )}
-                    
-                    {/* Zone label (only when empty) */}
-                    {!isOccupied && (
+                    {/* Zone label (only when visible in mode) */}
+                    {showLabel && (
                       <text
                         x={scaledX + scaledW / 2}
                         y={scaledY + scaledH / 2 + 4}
@@ -488,84 +496,72 @@ const MotherboardSVG = ({
                   </g>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[280px]">
-                  {component && isOccupied ? (
-                    <div className="flex gap-3">
-                      <img 
-                        src={component.image} 
-                        alt={component.name}
-                        className="w-14 h-14 rounded object-cover flex-shrink-0"
-                      />
-                      <div>
-                        <p className="font-semibold text-accent">{component.name}</p>
-                        <p className="text-xs text-muted-foreground">{component.description}</p>
-                        <p className="text-xs text-accent mt-1">✓ Montat corect</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="font-semibold">{zone.name}</p>
-                      <p className="text-xs text-muted-foreground">{zone.description}</p>
-                    </div>
-                  )}
+                  <div>
+                    <p className="font-semibold">{zone.name}</p>
+                    <p className="text-xs text-muted-foreground">{zone.description}</p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             );
           })}
 
-          {/* ===== SCHEMATIC LABELS WITH LINES ===== */}
-          
-          {/* CPU Label */}
-          <g>
-            <line x1="160" y1="145" x2="130" y2="145" stroke={accentCyan} strokeWidth="1" />
-            <line x1="130" y1="145" x2="130" y2="110" stroke={accentCyan} strokeWidth="1" />
-            <circle cx="160" cy="145" r="3" fill={accentCyan} />
-            <text x="130" y="105" textAnchor="middle" fill={accentCyan} fontSize="11" fontWeight="bold">CPU SOCKET</text>
-            <text x="130" y="117" textAnchor="middle" fill={labelColor} fontSize="8">LGA 1700</text>
-          </g>
+          {/* ===== SCHEMATIC LABELS WITH LINES (hidden in Ranked mode) ===== */}
+          {modeConfig.showZoneLabels && (
+            <>
+              {/* CPU Label */}
+              <g>
+                <line x1="160" y1="145" x2="130" y2="145" stroke={accentCyan} strokeWidth="1" />
+                <line x1="130" y1="145" x2="130" y2="110" stroke={accentCyan} strokeWidth="1" />
+                <circle cx="160" cy="145" r="3" fill={accentCyan} />
+                <text x="130" y="105" textAnchor="middle" fill={accentCyan} fontSize="11" fontWeight="bold">CPU SOCKET</text>
+                <text x="130" y="117" textAnchor="middle" fill={labelColor} fontSize="8">LGA 1700</text>
+              </g>
 
-          {/* RAM Label */}
-          <g>
-            <line x1="450" y1="130" x2="520" y2="130" stroke={accentGreen} strokeWidth="1" />
-            <circle cx="450" cy="130" r="3" fill={accentGreen} />
-            <text x="523" y="125" fill={accentGreen} fontSize="11" fontWeight="bold">DDR5 DIMM</text>
-            <text x="523" y="138" fill={labelColor} fontSize="8">4 Slots</text>
-          </g>
+              {/* RAM Label */}
+              <g>
+                <line x1="450" y1="130" x2="520" y2="130" stroke={accentGreen} strokeWidth="1" />
+                <circle cx="450" cy="130" r="3" fill={accentGreen} />
+                <text x="523" y="125" fill={accentGreen} fontSize="11" fontWeight="bold">DDR5 DIMM</text>
+                <text x="523" y="138" fill={labelColor} fontSize="8">4 Slots</text>
+              </g>
 
-          {/* GPU Label */}
-          <g>
-            <line x1="100" y1="350" x2="50" y2="350" stroke={accentPurple} strokeWidth="1" />
-            <line x1="50" y1="350" x2="50" y2="320" stroke={accentPurple} strokeWidth="1" />
-            <circle cx="100" cy="350" r="3" fill={accentPurple} />
-            <text x="50" y="315" textAnchor="middle" fill={accentPurple} fontSize="11" fontWeight="bold">PCIe x16</text>
-            <text x="50" y="328" textAnchor="middle" fill={labelColor} fontSize="8">GPU Slot</text>
-          </g>
+              {/* GPU Label */}
+              <g>
+                <line x1="100" y1="350" x2="50" y2="350" stroke={accentPurple} strokeWidth="1" />
+                <line x1="50" y1="350" x2="50" y2="320" stroke={accentPurple} strokeWidth="1" />
+                <circle cx="100" cy="350" r="3" fill={accentPurple} />
+                <text x="50" y="315" textAnchor="middle" fill={accentPurple} fontSize="11" fontWeight="bold">PCIe x16</text>
+                <text x="50" y="328" textAnchor="middle" fill={labelColor} fontSize="8">GPU Slot</text>
+              </g>
 
-          {/* M.2 Label */}
-          <g>
-            <line x1="200" y1="305" x2="200" y2="265" stroke="hsl(30, 100%, 50%)" strokeWidth="1" />
-            <circle cx="200" cy="305" r="3" fill="hsl(30, 100%, 50%)" />
-            <text x="200" y="260" textAnchor="middle" fill="hsl(30, 100%, 50%)" fontSize="10" fontWeight="bold">M.2 NVMe</text>
-          </g>
+              {/* M.2 Label */}
+              <g>
+                <line x1="200" y1="305" x2="200" y2="265" stroke="hsl(30, 100%, 50%)" strokeWidth="1" />
+                <circle cx="200" cy="305" r="3" fill="hsl(30, 100%, 50%)" />
+                <text x="200" y="260" textAnchor="middle" fill="hsl(30, 100%, 50%)" fontSize="10" fontWeight="bold">M.2 NVMe</text>
+              </g>
 
-          {/* Power Connectors Labels */}
-          <g>
-            {/* ATX 24-pin */}
-            <line x1="500" y1="180" x2="545" y2="180" stroke="hsl(45, 100%, 50%)" strokeWidth="1" />
-            <circle cx="500" cy="180" r="3" fill="hsl(45, 100%, 50%)" />
-            <text x="548" y="175" fill="hsl(45, 100%, 50%)" fontSize="10" fontWeight="bold">ATX 24-PIN</text>
-            <text x="548" y="188" fill={labelColor} fontSize="8">Main Power</text>
-          </g>
+              {/* Power Connectors Labels */}
+              <g>
+                {/* ATX 24-pin */}
+                <line x1="500" y1="180" x2="545" y2="180" stroke="hsl(45, 100%, 50%)" strokeWidth="1" />
+                <circle cx="500" cy="180" r="3" fill="hsl(45, 100%, 50%)" />
+                <text x="548" y="175" fill="hsl(45, 100%, 50%)" fontSize="10" fontWeight="bold">ATX 24-PIN</text>
+                <text x="548" y="188" fill={labelColor} fontSize="8">Main Power</text>
+              </g>
 
-          <g>
-            {/* EPS 8-pin */}
-            <line x1="340" y1="50" x2="340" y2="20" stroke="hsl(45, 100%, 50%)" strokeWidth="1" />
-            <circle cx="340" cy="50" r="3" fill="hsl(45, 100%, 50%)" />
-            <text x="340" y="15" textAnchor="middle" fill="hsl(45, 100%, 50%)" fontSize="10" fontWeight="bold">EPS 8-PIN</text>
-          </g>
+              <g>
+                {/* EPS 8-pin */}
+                <line x1="340" y1="50" x2="340" y2="20" stroke="hsl(45, 100%, 50%)" strokeWidth="1" />
+                <circle cx="340" cy="50" r="3" fill="hsl(45, 100%, 50%)" />
+                <text x="340" y="15" textAnchor="middle" fill="hsl(45, 100%, 50%)" fontSize="10" fontWeight="bold">EPS 8-PIN</text>
+              </g>
+            </>
+          )}
 
           {/* Board model text */}
           <text x="290" y="460" textAnchor="middle" fill="hsl(var(--foreground) / 0.4)" fontSize="10" fontFamily="monospace">
-            PC BUILDER SIMULATOR • SCHEMATIC VIEW
+            PC BUILDER SIMULATOR • {modeConfig.showZoneLabels ? "SCHEMATIC VIEW" : "RANKED MODE"}
           </text>
         </svg>
       </div>
