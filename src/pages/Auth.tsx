@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Cpu, Mail, Lock, User, Loader2, Eye, EyeOff } from "lucide-react";
+import { Cpu, Lock, User, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,37 +17,44 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   
   // Login state
-  const [loginEmail, setLoginEmail] = useState("");
+  const [loginNickname, setLoginNickname] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   
   // Signup state
-  const [signupEmail, setSignupEmail] = useState("");
+  const [signupNickname, setSignupNickname] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupConfirmPassword, setSignupConfirmPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
 
   // Redirect if already logged in
-  if (user) {
-    navigate("/profil");
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      navigate("/profil");
+    }
+  }, [user, navigate]);
+
+  // Generate email from nickname
+  const nicknameToEmail = (nickname: string) => {
+    const sanitized = nickname.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `${sanitized}@pcbuilder.local`;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginEmail || !loginPassword) {
+    if (!loginNickname || !loginPassword) {
       toast.error("Te rugăm să completezi toate câmpurile");
       return;
     }
 
     setIsLoading(true);
-    const { error } = await signIn(loginEmail, loginPassword);
+    const email = nicknameToEmail(loginNickname);
+    const { error } = await signIn(email, loginPassword);
     setIsLoading(false);
 
     if (error) {
       if (error.message.includes("Invalid login credentials")) {
-        toast.error("Email sau parolă greșită");
+        toast.error("Nickname sau parolă greșită");
       } else if (error.message.includes("Email not confirmed")) {
-        toast.error("Te rugăm să îți confirmi adresa de email");
+        toast.error("Contul nu a fost confirmat încă");
       } else {
         toast.error("Eroare la conectare: " + error.message);
       }
@@ -60,8 +67,24 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!signupEmail || !signupPassword || !signupConfirmPassword) {
-      toast.error("Te rugăm să completezi toate câmpurile obligatorii");
+    if (!signupNickname || !signupPassword || !signupConfirmPassword) {
+      toast.error("Te rugăm să completezi toate câmpurile");
+      return;
+    }
+
+    // Validate nickname
+    if (signupNickname.length < 3) {
+      toast.error("Nickname-ul trebuie să aibă cel puțin 3 caractere");
+      return;
+    }
+
+    if (signupNickname.length > 20) {
+      toast.error("Nickname-ul poate avea maximum 20 caractere");
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(signupNickname)) {
+      toast.error("Nickname-ul poate conține doar litere, cifre și underscore");
       return;
     }
 
@@ -76,19 +99,29 @@ const Auth = () => {
     }
 
     setIsLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, displayName || signupEmail.split("@")[0]);
+    const email = nicknameToEmail(signupNickname);
+    const { error } = await signUp(email, signupPassword, signupNickname);
     setIsLoading(false);
 
     if (error) {
       if (error.message.includes("already registered")) {
-        toast.error("Acest email este deja înregistrat");
+        toast.error("Acest nickname este deja folosit");
       } else {
         toast.error("Eroare la înregistrare: " + error.message);
       }
     } else {
-      toast.success("Cont creat! Verifică-ți email-ul pentru a confirma contul.");
+      toast.success("Cont creat cu succes! Te poți conecta acum.");
+      // Auto-login after signup
+      const { error: loginError } = await signIn(email, signupPassword);
+      if (!loginError) {
+        navigate("/profil");
+      }
     }
   };
+
+  if (user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -129,17 +162,18 @@ const Auth = () => {
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
+                    <Label htmlFor="login-nickname">Nickname</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="login-email"
-                        type="email"
-                        placeholder="email@exemplu.ro"
+                        id="login-nickname"
+                        type="text"
+                        placeholder="Nickname-ul tău"
                         className="pl-10"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
+                        value={loginNickname}
+                        onChange={(e) => setLoginNickname(e.target.value)}
                         disabled={isLoading}
+                        autoComplete="username"
                       />
                     </div>
                   </div>
@@ -156,6 +190,7 @@ const Auth = () => {
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         disabled={isLoading}
+                        autoComplete="current-password"
                       />
                       <button
                         type="button"
@@ -184,36 +219,24 @@ const Auth = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Nume afișat (opțional)</Label>
+                    <Label htmlFor="signup-nickname">Nickname *</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        id="signup-name"
+                        id="signup-nickname"
                         type="text"
                         placeholder="ElevulCurios"
                         className="pl-10"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email *</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="email@exemplu.ro"
-                        className="pl-10"
-                        value={signupEmail}
-                        onChange={(e) => setSignupEmail(e.target.value)}
+                        value={signupNickname}
+                        onChange={(e) => setSignupNickname(e.target.value)}
                         disabled={isLoading}
                         required
+                        autoComplete="username"
                       />
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      3-20 caractere, doar litere, cifre și underscore
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -229,6 +252,7 @@ const Auth = () => {
                         onChange={(e) => setSignupPassword(e.target.value)}
                         disabled={isLoading}
                         required
+                        autoComplete="new-password"
                       />
                       <button
                         type="button"
@@ -253,6 +277,7 @@ const Auth = () => {
                         onChange={(e) => setSignupConfirmPassword(e.target.value)}
                         disabled={isLoading}
                         required
+                        autoComplete="new-password"
                       />
                     </div>
                   </div>
@@ -267,10 +292,6 @@ const Auth = () => {
                       "Creează cont"
                     )}
                   </Button>
-
-                  <p className="text-xs text-center text-muted-foreground">
-                    Vei primi un email de confirmare pentru a activa contul.
-                  </p>
                 </form>
               </TabsContent>
             </Tabs>
