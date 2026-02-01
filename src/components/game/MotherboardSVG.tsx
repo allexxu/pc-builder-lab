@@ -442,9 +442,9 @@ const MotherboardSVG = ({
               );
             }
 
-            // Empty zone rendering - conditional based on game mode
-            const showZoneVisuals = modeConfig.showZoneHints;
-            const showLabel = modeConfig.showZoneLabels;
+            // Empty zone rendering - always show zones, optionally show labels
+            const showZoneVisuals = true; // Always show zone outlines
+            const showLabel = false; // Never show text inside zones
 
             return (
               <Tooltip key={zone.id}>
@@ -455,7 +455,7 @@ const MotherboardSVG = ({
                     onMouseLeave={() => onZoneHover(null)}
                     style={{ cursor: "pointer" }}
                   >
-                    {/* Zone background */}
+                    {/* Zone background - always visible */}
                     <rect
                       x={scaledX}
                       y={scaledY}
@@ -463,36 +463,21 @@ const MotherboardSVG = ({
                       height={scaledH}
                       rx="4"
                       fill="hsl(var(--muted) / 0.3)"
-                      stroke={showZoneVisuals ? zone.color : "hsl(var(--border) / 0.3)"}
-                      strokeWidth={showZoneVisuals ? (isHighlighted || canDrop ? 3 : 2) : 1}
-                      strokeDasharray={showZoneVisuals ? "6,4" : "3,3"}
-                      opacity={showZoneVisuals ? 0.85 : 0.4}
+                      stroke={zone.color}
+                      strokeWidth={isHighlighted || canDrop ? 3 : 2}
+                      strokeDasharray="6,4"
+                      opacity={0.85}
                       className={cn(
                         "transition-all duration-200",
-                        showZoneVisuals && isHighlighted && "animate-pulse",
-                        showZoneVisuals && canDrop && "animate-pulse"
+                        isHighlighted && "animate-pulse",
+                        canDrop && "animate-pulse"
                       )}
                       style={{
-                        filter: showZoneVisuals && (isHighlighted || canDrop)
+                        filter: (isHighlighted || canDrop)
                           ? `drop-shadow(0 0 12px ${zone.color})` 
                           : "none"
                       }}
                     />
-                    
-                    {/* Zone label (only when visible in mode) */}
-                    {showLabel && (
-                      <text
-                        x={scaledX + scaledW / 2}
-                        y={scaledY + scaledH / 2 + 4}
-                        textAnchor="middle"
-                        fill="hsl(var(--foreground))"
-                        fontSize="9"
-                        fontWeight="500"
-                        opacity="0.8"
-                      >
-                        {zone.name.length > 14 ? zone.name.slice(0, 12) + ".." : zone.name}
-                      </text>
-                    )}
                   </g>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="max-w-[280px]">
