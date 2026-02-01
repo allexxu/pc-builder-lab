@@ -1,4 +1,5 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useState } from "react";
 import { 
   BookOpen, 
   ChevronLeft, 
@@ -10,13 +11,19 @@ import {
   Cpu,
   Cable,
   Thermometer,
-  Fan
+  Fan,
+  XCircle,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import MainLayout from "@/components/layout/MainLayout";
+import { useLessonProgress } from "@/hooks/useLessonProgress";
+import { useAchievements } from "@/hooks/useAchievements";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 // Lesson content data
 const lessonsData = {
@@ -337,8 +344,21 @@ const lessonsData = {
 const LessonDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { markLessonComplete, getLessonProgress, getCompletedCount } = useLessonProgress();
+  const { checkLessonAchievements } = useAchievements();
   
   const lesson = slug ? lessonsData[slug as keyof typeof lessonsData] : null;
+  
+  // Quiz state
+  const [quizStarted, setQuizStarted] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [answers, setAnswers] = useState<number[]>([]);
+  const [showResult, setShowResult] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Get existing progress
+  const existingProgress = slug ? getLessonProgress(slug) : undefined;
   
   if (!lesson) {
     return (
@@ -357,6 +377,54 @@ const LessonDetail = () => {
   }
 
   const Icon = lesson.icon;
+  const correctAnswers = answers.filter((a, i) => a === lesson.quiz[i].correct).length;
+  const quizTotal = lesson.quiz.length;
+
+  const handleAnswerSelect = (optionIndex: number) => {
+    const newAnswers = [...answers];
+    newAnswers[currentQuestion] = optionIndex;
+    setAnswers(newAnswers);
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestion < quizTotal - 1) {
+      setCurrentQuestion(currentQuestion + 1);
+    } else {
+      setShowResult(true);
+      handleSaveProgress();
+    }
+  };
+
+  const handleSaveProgress = async () => {
+    if (!user || !slug) return;
+    
+    setIsSaving(true);
+    const finalScore = answers.filter((a, i) => a === lesson.quiz[i].correct).length;
+    
+    const { error } = await markLessonComplete(slug, finalScore);
+    
+    if (error) {
+      toast.error("Eroare la salvarea progresului");
+    } else {
+      toast.success("Progresul a fost salvat!");
+      
+      // Check for achievements
+      const newCompletedCount = getCompletedCount() + 1;
+      const unlocked = await checkLessonAchievements(newCompletedCount);
+      if (unlocked) {
+        toast.success("🏆 Ai deblocat achievement-ul 'Primul Pas'!");
+      }
+    }
+    
+    setIsSaving(false);
+  };
+
+  const resetQuiz = () => {
+    setQuizStarted(false);
+    setCurrentQuestion(0);
+    setAnswers([]);
+    setShowResult(false);
+  };
 
   return (
     <MainLayout>
@@ -375,7 +443,15 @@ const LessonDetail = () => {
               <Icon className="h-8 w-8 text-primary" />
             </div>
             <div className="flex-1">
-              <Badge variant="outline" className="mb-2">Lecția {lesson.id}</Badge>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline">Lecția {lesson.id}</Badge>
+                {existingProgress?.completed && (
+                  <Badge className="bg-accent text-accent-foreground">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Completat
+                  </Badge>
+                )}
+              </div>
               <h1 className="text-3xl font-bold mb-2">{lesson.title}</h1>
               <p className="text-muted-foreground">{lesson.description}</p>
               <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
@@ -418,7 +494,7 @@ const LessonDetail = () => {
         </div>
       </section>
 
-      {/* Quiz Preview */}
+      {/* Quiz Section */}
       <section className="py-8 bg-card/30">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto">
@@ -430,14 +506,119 @@ const LessonDetail = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground mb-4">
-                  Această lecție include {lesson.quiz.length} întrebări pentru a-ți verifica cunoștințele.
-                </p>
-                <Progress value={0} className="h-2 mb-4" />
-                <p className="text-sm text-muted-foreground mb-4">0 / {lesson.quiz.length} răspunsuri corecte</p>
-                <Button className="neon-glow">
-                  Începe Quiz-ul
-                </Button>
+                {!quizStarted && !showResult ? (
+                  <>
+                    <p className="text-muted-foreground mb-4">
+                      Această lecție include {quizTotal} întrebări pentru a-ți verifica cunoștințele.
+                    </p>
+                    {existingProgress?.completed && existingProgress.quiz_score !== null && (
+                      <div className="mb-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
+                        <p className="text-sm text-muted-foreground">Scor anterior:</p>
+                        <p className="text-lg font-bold text-accent">
+                          {existingProgress.quiz_score}/{existingProgress.quiz_total} răspunsuri corecte
+                        </p>
+                      </div>
+                    )}
+                    <Progress value={0} className="h-2 mb-4" />
+                    <p className="text-sm text-muted-foreground mb-4">0 / {quizTotal} răspunsuri</p>
+                    <Button className="neon-glow" onClick={() => setQuizStarted(true)}>
+                      {existingProgress?.completed ? "Reia Quiz-ul" : "Începe Quiz-ul"}
+                    </Button>
+                  </>
+                ) : showResult ? (
+                  <div className="text-center py-4">
+                    <div className={`w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                      correctAnswers === quizTotal ? "bg-accent/20" : "bg-primary/20"
+                    }`}>
+                      {correctAnswers === quizTotal ? (
+                        <CheckCircle2 className="h-10 w-10 text-accent" />
+                      ) : (
+                        <span className="text-3xl font-bold text-primary">{correctAnswers}/{quizTotal}</span>
+                      )}
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">
+                      {correctAnswers === quizTotal ? "Perfect!" : "Quiz Finalizat!"}
+                    </h3>
+                    <p className="text-muted-foreground mb-4">
+                      Ai răspuns corect la {correctAnswers} din {quizTotal} întrebări.
+                    </p>
+                    {isSaving && (
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-4">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Se salvează progresul...
+                      </div>
+                    )}
+                    {!user && (
+                      <p className="text-sm text-muted-foreground mb-4">
+                        <Link to="/auth" className="text-primary hover:underline">Conectează-te</Link> pentru a-ți salva progresul!
+                      </p>
+                    )}
+                    <div className="flex gap-3 justify-center">
+                      <Button variant="outline" onClick={resetQuiz}>
+                        Reia Quiz-ul
+                      </Button>
+                      {lesson.nextLesson ? (
+                        <Button asChild className="neon-glow">
+                          <Link to={`/lectii/${lesson.nextLesson}`}>
+                            Lecția Următoare
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button asChild className="neon-glow-green bg-accent hover:bg-accent/90">
+                          <Link to="/joc">
+                            Joacă Acum
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Progress value={((currentQuestion + 1) / quizTotal) * 100} className="h-2 mb-4" />
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Întrebarea {currentQuestion + 1} din {quizTotal}
+                    </p>
+                    
+                    <h3 className="text-lg font-medium mb-4">
+                      {lesson.quiz[currentQuestion].question}
+                    </h3>
+                    
+                    <div className="space-y-2 mb-6">
+                      {lesson.quiz[currentQuestion].options.map((option, index) => {
+                        const isSelected = answers[currentQuestion] === index;
+                        return (
+                          <button
+                            key={index}
+                            onClick={() => handleAnswerSelect(index)}
+                            className={`w-full text-left p-4 rounded-lg border transition-all ${
+                              isSelected 
+                                ? "border-primary bg-primary/10" 
+                                : "border-border hover:border-primary/50 hover:bg-muted/50"
+                            }`}
+                          >
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full mr-3 text-sm ${
+                              isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
+                            }`}>
+                              {String.fromCharCode(65 + index)}
+                            </span>
+                            {option}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    
+                    <Button 
+                      className="w-full neon-glow" 
+                      onClick={handleNextQuestion}
+                      disabled={answers[currentQuestion] === undefined}
+                    >
+                      {currentQuestion < quizTotal - 1 ? "Următoarea Întrebare" : "Finalizează Quiz-ul"}
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

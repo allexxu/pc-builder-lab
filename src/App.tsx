@@ -10,6 +10,7 @@ import LessonDetail from "./pages/LessonDetail";
 import Game from "./pages/Game";
 import Leaderboard from "./pages/Leaderboard";
 import Profile from "./pages/Profile";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 // Quiz pages
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/joc" element={<Game />} />
             <Route path="/clasament" element={<Leaderboard />} />
             <Route path="/profil" element={<Profile />} />
+            <Route path="/auth" element={<Auth />} />
             
             {/* Quiz Routes */}
             <Route path="/quiz" element={<QuizHome />} />

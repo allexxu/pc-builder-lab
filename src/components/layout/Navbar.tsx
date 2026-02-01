@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
-import { Cpu, Monitor, Zap, Menu, X } from "lucide-react";
+import { Cpu, Zap, Menu, X, User, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   const navLinks = [
     { to: "/", label: "Acasă" },
@@ -45,15 +47,36 @@ const Navbar = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/profil">Conectare</Link>
-            </Button>
-            <Button asChild size="sm" className="neon-glow">
-              <Link to="/lectii">
-                <Zap className="h-4 w-4 mr-1" />
-                Începe Acum
-              </Link>
-            </Button>
+            {user ? (
+              <>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/profil">
+                    <User className="h-4 w-4 mr-1" />
+                    {user.user_metadata?.display_name || user.email?.split("@")[0] || "Profil"}
+                  </Link>
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground"
+                  onClick={() => signOut()}
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/auth">Conectare</Link>
+                </Button>
+                <Button asChild size="sm" className="neon-glow">
+                  <Link to="/lectii">
+                    <Zap className="h-4 w-4 mr-1" />
+                    Începe Acum
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -82,17 +105,41 @@ const Navbar = () => {
               </Link>
             ))}
             <div className="pt-4 border-t border-border space-y-2">
-              <Button asChild variant="ghost" className="w-full justify-start">
-                <Link to="/profil" onClick={() => setIsOpen(false)}>
-                  Conectare
-                </Link>
-              </Button>
-              <Button asChild className="w-full neon-glow">
-                <Link to="/lectii" onClick={() => setIsOpen(false)}>
-                  <Zap className="h-4 w-4 mr-1" />
-                  Începe Acum
-                </Link>
-              </Button>
+              {user ? (
+                <>
+                  <Button asChild variant="ghost" className="w-full justify-start">
+                    <Link to="/profil" onClick={() => setIsOpen(false)}>
+                      <User className="h-4 w-4 mr-2" />
+                      {user.user_metadata?.display_name || user.email?.split("@")[0] || "Profil"}
+                    </Link>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start text-muted-foreground"
+                    onClick={() => {
+                      signOut();
+                      setIsOpen(false);
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Deconectare
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button asChild variant="ghost" className="w-full justify-start">
+                    <Link to="/auth" onClick={() => setIsOpen(false)}>
+                      Conectare
+                    </Link>
+                  </Button>
+                  <Button asChild className="w-full neon-glow">
+                    <Link to="/lectii" onClick={() => setIsOpen(false)}>
+                      <Zap className="h-4 w-4 mr-1" />
+                      Începe Acum
+                    </Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

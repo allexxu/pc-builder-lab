@@ -1,9 +1,15 @@
 import { GameMode } from "@/hooks/useGameState";
-import { Trophy, Clock, Target, Lightbulb, Star, RotateCcw, Home, Award } from "lucide-react";
+import { Trophy, Clock, Target, Lightbulb, Star, RotateCcw, Home, Award, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useGameHistory } from "@/hooks/useGameHistory";
+import { useAchievements } from "@/hooks/useAchievements";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { GAME_CONFIG } from "@/data/gameComponents";
 
 interface GameEndScreenProps {
   mode: GameMode;
@@ -30,8 +36,65 @@ const GameEndScreen = ({
   onPlayAgain,
   onBackToMenu
 }: GameEndScreenProps) => {
+  const { user } = useAuth();
+  const { saveGame } = useGameHistory();
+  const { checkGameAchievements } = useAchievements();
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
+  
   const isPerfect = mistakes === 0;
   const noHints = hintsUsed === 0;
+  const config = GAME_CONFIG[mode];
+  const timeElapsed = config.timeLimit > 0 ? config.timeLimit - timeRemaining : 0;
+  const accuracy = Math.max(0, Math.round(100 - (mistakes * 10)));
+
+  // Save game when component mounts (only once)
+  useEffect(() => {
+    const saveGameData = async () => {
+      if (!user || hasSaved) return;
+      
+      setIsSaving(true);
+      
+      const gameData = {
+        mode,
+        score: finalScore.total,
+        time_seconds: timeElapsed,
+        accuracy,
+        mistakes,
+        completed: true,
+      };
+      
+      const { error } = await saveGame(gameData);
+      
+      if (error) {
+        toast.error("Eroare la salvarea scorului");
+      } else {
+        // Check for achievements
+        const unlockedAchievements = await checkGameAchievements({
+          mode,
+          time_seconds: timeElapsed,
+          mistakes,
+          completed: true,
+        });
+        
+        if (unlockedAchievements.length > 0) {
+          unlockedAchievements.forEach(id => {
+            const achievementNames: Record<string, string> = {
+              speed_demon: "Speed Demon",
+              perfect_run: "Perfect Run",
+              cable_master: "Cable Master",
+            };
+            toast.success(`🏆 Ai deblocat: ${achievementNames[id] || id}!`);
+          });
+        }
+      }
+      
+      setIsSaving(false);
+      setHasSaved(true);
+    };
+    
+    saveGameData();
+  }, [user, hasSaved]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -73,6 +136,21 @@ const GameEndScreen = ({
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Saving indicator */}
+          {isSaving && (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Se salvează scorul...
+            </div>
+          )}
+          
+          {!user && (
+            <div className="text-center text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">
+              <Link to="/auth" className="text-primary hover:underline font-medium">Conectează-te</Link>
+              {" "}pentru a-ți salva scorul și a apărea în clasament!
+            </div>
+          )}
+          
           {/* Score breakdown */}
           <div className="space-y-3">
             <div className="flex justify-between items-center py-2 border-b border-border">
@@ -172,7 +250,7 @@ const GameEndScreen = ({
           {/* Leaderboard link for ranked */}
           {mode === "ranked" && (
             <Button variant="ghost" className="w-full" asChild>
-              <Link to="/leaderboard">
+              <Link to="/clasament">
                 <Trophy className="w-4 h-4 mr-2" />
                 Vezi Clasamentul
               </Link>
