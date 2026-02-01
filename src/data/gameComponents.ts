@@ -1,5 +1,15 @@
 // Game component definitions and drop zones for PC assembly game
 
+// Import component images
+import cpuImage from "@/assets/components/cpu.png";
+import coolerImage from "@/assets/components/cooler.png";
+import ramImage from "@/assets/components/ram.png";
+import ssdImage from "@/assets/components/ssd.png";
+import gpuImage from "@/assets/components/gpu.png";
+import atx24Image from "@/assets/components/atx24.png";
+import eps8Image from "@/assets/components/eps8.png";
+import fanImage from "@/assets/components/fan.png";
+
 export type ComponentId = 
   | "cpu" 
   | "cooler" 
@@ -32,6 +42,7 @@ export interface GameComponent {
   order: number;
   dependency?: ComponentId;
   icon: string;
+  image: string;
   color: string;
   hint: string;
 }
@@ -56,6 +67,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "cpu-socket",
     order: 1,
     icon: "Cpu",
+    image: cpuImage,
     color: "hsl(var(--primary))",
     hint: "Se plasează în socket-ul central al plăcii de bază"
   },
@@ -67,6 +79,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     order: 2,
     dependency: "cpu",
     icon: "Fan",
+    image: coolerImage,
     color: "hsl(var(--primary))",
     hint: "Se montează direct pe procesor, după aplicarea pastei termice"
   },
@@ -77,6 +90,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "ram-slot-1",
     order: 3,
     icon: "MemoryStick",
+    image: ramImage,
     color: "hsl(var(--accent))",
     hint: "Se inserează în primul slot RAM (de obicei A2)"
   },
@@ -87,6 +101,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "ram-slot-2",
     order: 4,
     icon: "MemoryStick",
+    image: ramImage,
     color: "hsl(var(--accent))",
     hint: "Se inserează în al doilea slot RAM (de obicei B2)"
   },
@@ -97,6 +112,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "m2-slot",
     order: 5,
     icon: "HardDrive",
+    image: ssdImage,
     color: "hsl(30, 100%, 50%)",
     hint: "Se montează în slotul M.2, sub heatsink"
   },
@@ -107,6 +123,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "pcie-x16",
     order: 6,
     icon: "Monitor",
+    image: gpuImage,
     color: "hsl(270, 100%, 65%)",
     hint: "Se inserează în slotul PCIe x16 principal"
   },
@@ -117,6 +134,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "atx-connector",
     order: 7,
     icon: "Cable",
+    image: atx24Image,
     color: "hsl(45, 100%, 50%)",
     hint: "Conectorul mare din dreapta plăcii de bază"
   },
@@ -127,6 +145,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "eps-connector",
     order: 8,
     icon: "Plug",
+    image: eps8Image,
     color: "hsl(45, 100%, 50%)",
     hint: "Conectorul din partea de sus, lângă socket-ul CPU"
   },
@@ -137,6 +156,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "fan-header-1",
     order: 9,
     icon: "Wind",
+    image: fanImage,
     color: "hsl(200, 100%, 50%)",
     hint: "Se conectează la header-ul SYS_FAN1"
   },
@@ -147,6 +167,7 @@ export const GAME_COMPONENTS: GameComponent[] = [
     targetZone: "fan-header-2",
     order: 10,
     icon: "Wind",
+    image: fanImage,
     color: "hsl(200, 100%, 50%)",
     hint: "Se conectează la header-ul SYS_FAN2"
   }
