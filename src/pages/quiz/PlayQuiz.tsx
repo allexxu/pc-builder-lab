@@ -149,10 +149,12 @@ const PlayQuiz = () => {
 
   // Subscribe to session changes
   useEffect(() => {
-    if (!gamePin || !session) return;
+    if (!gamePin) return;
+
+    console.log("[PlayQuiz] Setting up realtime subscription for game:", gamePin);
 
     const channel = supabase
-      .channel(`play_session_${gamePin}`)
+      .channel(`play_session_${gamePin}_${Date.now()}`)
       .on(
         "postgres_changes",
         {
@@ -162,45 +164,74 @@ const PlayQuiz = () => {
           filter: `game_pin=eq.${gamePin}`,
         },
         (payload: RealtimePostgresChangesPayload<GameSession>) => {
+          console.log("[PlayQuiz] Realtime update received:", payload.new);
           const newSession = payload.new as GameSession;
           setSession(newSession);
 
           if (newSession.status === "finished") {
+            console.log("[PlayQuiz] Game finished, redirecting to results");
             navigate(`/quiz/results/${gamePin}`);
             return;
           }
 
           if (newSession.status === "results") {
+            console.log("[PlayQuiz] Showing results/leaderboard");
             setShowLeaderboard(true);
             setShowResult(true);
+            
+            // Refresh participants for leaderboard
+            fetchParticipants();
           }
 
           if (
             newSession.status === "question" &&
             newSession.current_question !== null
           ) {
-            const q = questions.find(
-              (q) => q.order_num === newSession.current_question
-            );
-            if (q) {
-              // Reset for new question
-              setSelectedAnswer(null);
-              setShowResult(false);
-              setShowLeaderboard(false);
-              setShowScorePopup(false);
-              setCurrentQuestion(q);
-              setTimeRemaining(q.time_limit);
-              setQuestionStartTime(Date.now());
-            }
+            console.log("[PlayQuiz] New question:", newSession.current_question);
+            // Find the question from our cached questions list
+            setQuestions((prevQuestions) => {
+              const q = prevQuestions.find(
+                (q) => q.order_num === newSession.current_question
+              );
+              if (q) {
+                console.log("[PlayQuiz] Setting up question:", q.question);
+                // Reset for new question
+                setSelectedAnswer(null);
+                setShowResult(false);
+                setShowLeaderboard(false);
+                setShowScorePopup(false);
+                setCurrentQuestion(q);
+                setTimeRemaining(q.time_limit);
+                setQuestionStartTime(Date.now());
+              }
+              return prevQuestions;
+            });
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[PlayQuiz] Subscription status:", status);
+      });
 
     return () => {
+      console.log("[PlayQuiz] Cleaning up subscription");
       supabase.removeChannel(channel);
     };
-  }, [gamePin, session, questions, navigate]);
+  }, [gamePin, navigate]);
+
+  // Fetch participants helper
+  const fetchParticipants = async () => {
+    if (!session) return;
+    const { data: participantsData } = await supabase
+      .from("participants")
+      .select("id, nickname, total_score")
+      .eq("session_id", session.id)
+      .eq("is_active", true);
+
+    if (participantsData) {
+      setParticipants(participantsData);
+    }
+  };
 
   // Countdown timer
   useEffect(() => {
