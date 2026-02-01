@@ -198,7 +198,7 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
           </div>
 
           {/* Motherboard area with drop zones */}
-          <div className="order-1 lg:order-2 flex flex-col items-center w-full">
+          <div className="order-1 lg:order-2 flex flex-col items-center lg:items-stretch w-full">
             <h3 className="text-lg font-semibold mb-4 text-center">
               Placă de Bază
               {dragState.isDragging && (
@@ -211,7 +211,10 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
             <div 
               ref={boardRef}
               className={cn(
-                "relative p-4 rounded-2xl border-2 border-border bg-card/50",
+                // Important: give the board a real width on desktop.
+                // Otherwise, because the parent is `items-center`, the board can shrink-to-fit
+                // its contents and the SVG ends up rendering much smaller than the available space.
+                "relative w-full max-w-[1100px] xl:max-w-[1300px] p-4 rounded-2xl border-2 border-border bg-card/50",
                 "transition-all duration-300",
                 dragState.isDragging && "border-primary/50 neon-glow",
                 showFeedback?.type === "success" && "border-accent animate-bounce-success",
