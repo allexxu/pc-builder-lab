@@ -29,25 +29,27 @@ const DropZoneOverlay = ({
     const zone = DROP_ZONES.find(z => z.id === hoveredZone);
     if (!zone) return null;
     
+    const scale = 1.33; // Same scale as MotherboardSVG
+    
     return (
       <svg
-        viewBox="0 0 450 360"
+        viewBox="0 0 600 480"
         className="absolute inset-0 w-full h-full pointer-events-none z-10"
       >
         <g>
           <rect
-            x={zone.x - 2}
-            y={zone.y - 2}
-            width={zone.width + 4}
-            height={zone.height + 4}
+            x={(zone.x - 2) * scale}
+            y={(zone.y - 2) * scale}
+            width={(zone.width + 4) * scale}
+            height={(zone.height + 4) * scale}
             rx="6"
             fill={isValidDrop ? "hsl(var(--accent) / 0.2)" : "hsl(var(--destructive) / 0.2)"}
             stroke={isValidDrop ? "hsl(var(--accent))" : "hsl(var(--destructive))"}
             strokeWidth="2"
           />
           <text
-            x={zone.x + zone.width / 2}
-            y={zone.y + zone.height / 2 + 4}
+            x={(zone.x + zone.width / 2) * scale}
+            y={(zone.y + zone.height / 2 + 4) * scale}
             textAnchor="middle"
             fill={isValidDrop ? "hsl(var(--accent))" : "hsl(var(--destructive))"}
             fontSize="14"
@@ -62,9 +64,11 @@ const DropZoneOverlay = ({
   
   if (!draggedComponent) return null;
 
+  const scale = 1.33; // Same scale as MotherboardSVG
+
   return (
     <svg
-      viewBox="0 0 450 360"
+      viewBox="0 0 600 480"
       className="absolute inset-0 w-full h-full pointer-events-none z-10"
     >
       {DROP_ZONES.map(zone => {
@@ -79,16 +83,21 @@ const DropZoneOverlay = ({
 
         const isHovered = hoveredZone === zone.id;
         const canAccept = zone.acceptsComponent === draggedComponent;
-        const component = GAME_COMPONENTS.find(c => c.id === zone.acceptsComponent);
+
+        // Scale coordinates
+        const scaledX = zone.x * scale;
+        const scaledY = zone.y * scale;
+        const scaledW = zone.width * scale;
+        const scaledH = zone.height * scale;
 
         return (
           <g key={zone.id}>
             {/* Highlight for potential drop zones */}
             <rect
-              x={zone.x - 4}
-              y={zone.y - 4}
-              width={zone.width + 8}
-              height={zone.height + 8}
+              x={scaledX - 4}
+              y={scaledY - 4}
+              width={scaledW + 8}
+              height={scaledH + 8}
               rx="8"
               fill="none"
               stroke={canAccept ? "hsl(var(--accent))" : "hsl(var(--muted-foreground))"}
@@ -115,28 +124,14 @@ const DropZoneOverlay = ({
             {canAccept && (
               <g opacity={isHovered ? 1 : 0.7}>
                 <rect
-                  x={zone.x}
-                  y={zone.y}
-                  width={zone.width}
-                  height={zone.height}
+                  x={scaledX}
+                  y={scaledY}
+                  width={scaledW}
+                  height={scaledH}
                   rx="4"
                   fill={isHovered ? "hsl(var(--accent) / 0.2)" : "hsl(var(--accent) / 0.1)"}
                   className={isHovered ? "animate-pulse" : ""}
                 />
-                
-                {/* Zone label */}
-                {!isHovered && (
-                  <text
-                    x={zone.x + zone.width / 2}
-                    y={zone.y + zone.height / 2 + 4}
-                    textAnchor="middle"
-                    fill="hsl(var(--accent))"
-                    fontSize="8"
-                    fontWeight="bold"
-                  >
-                    {zone.width > 40 ? "PLASEAZĂ AICI" : "↓"}
-                  </text>
-                )}
               </g>
             )}
 
@@ -147,17 +142,17 @@ const DropZoneOverlay = ({
                   // Valid drop - green glow
                   <>
                     <rect
-                      x={zone.x - 2}
-                      y={zone.y - 2}
-                      width={zone.width + 4}
-                      height={zone.height + 4}
+                      x={scaledX - 2}
+                      y={scaledY - 2}
+                      width={scaledW + 4}
+                      height={scaledH + 4}
                       rx="6"
                       fill="hsl(var(--accent) / 0.3)"
                       className="animate-pulse"
                     />
                     <text
-                      x={zone.x + zone.width / 2}
-                      y={zone.y + zone.height / 2 + 4}
+                      x={scaledX + scaledW / 2}
+                      y={scaledY + scaledH / 2 + 4}
                       textAnchor="middle"
                       fill="hsl(var(--accent))"
                       fontSize="12"
@@ -170,17 +165,17 @@ const DropZoneOverlay = ({
                   // Invalid drop - red shake
                   <>
                     <rect
-                      x={zone.x - 2}
-                      y={zone.y - 2}
-                      width={zone.width + 4}
-                      height={zone.height + 4}
+                      x={scaledX - 2}
+                      y={scaledY - 2}
+                      width={scaledW + 4}
+                      height={scaledH + 4}
                       rx="6"
                       fill="hsl(var(--destructive) / 0.3)"
                       className="animate-shake-subtle"
                     />
                     <text
-                      x={zone.x + zone.width / 2}
-                      y={zone.y + zone.height / 2 + 4}
+                      x={scaledX + scaledW / 2}
+                      y={scaledY + scaledH / 2 + 4}
                       textAnchor="middle"
                       fill="hsl(var(--destructive))"
                       fontSize="12"
