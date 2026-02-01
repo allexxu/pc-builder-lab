@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import QuizLayout from "@/components/quiz/QuizLayout";
@@ -6,6 +6,7 @@ import GamePin from "@/components/quiz/GamePin";
 import ParticipantsList from "@/components/quiz/ParticipantsList";
 import GameControls from "@/components/quiz/GameControls";
 import LeaderboardList from "@/components/quiz/LeaderboardList";
+import CountdownTimer from "@/components/quiz/CountdownTimer";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
@@ -32,6 +33,8 @@ interface Question {
   time_limit: number;
 }
 
+const RESULTS_DISPLAY_TIME = 5; // seconds to show results before next question
+
 const GameControl = () => {
   const { gamePin } = useParams<{ gamePin: string }>();
   const navigate = useNavigate();
@@ -44,6 +47,11 @@ const GameControl = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [answeredCount, setAnsweredCount] = useState(0);
+  
+  // Timer states
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [isAutoAdvancing, setIsAutoAdvancing] = useState(true);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const isAuthenticated = localStorage.getItem("teacher_authenticated") === "true";
@@ -164,6 +172,127 @@ const GameControl = () => {
     };
   }, [session, gamePin]);
 
+  // Auto-advance timer logic
+  useEffect(() => {
+    if (!session || !currentQuestion || !isAutoAdvancing) return;
+
+    // Clear any existing timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    if (session.status === "question") {
+      // Start countdown for current question
+      setTimeRemaining(currentQuestion.time_limit);
+      
+      timerRef.current = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            // Time's up - show results
+            handleShowResults();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else if (session.status === "results") {
+      // Show results for a few seconds, then advance
+      setTimeRemaining(RESULTS_DISPLAY_TIME);
+      
+      timerRef.current = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            // Auto advance to next question
+            handleAutoAdvance();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [session?.status, currentQuestion?.id, isAutoAdvancing]);
+
+  const handleShowResults = useCallback(async () => {
+    if (!session) return;
+
+    try {
+      const { error } = await supabase
+        .from("game_sessions")
+        .update({ status: "results" })
+        .eq("id", session.id);
+
+      if (error) throw error;
+
+      setSession((prev) => (prev ? { ...prev, status: "results" } : null));
+
+      // Refresh participant scores
+      const { data: updatedParticipants } = await supabase
+        .from("participants")
+        .select("id, nickname, is_active, total_score")
+        .eq("session_id", session.id);
+
+      if (updatedParticipants) {
+        setParticipants(updatedParticipants);
+      }
+    } catch (error) {
+      console.error("Error showing results:", error);
+    }
+  }, [session]);
+
+  const handleAutoAdvance = useCallback(async () => {
+    if (!session) return;
+
+    const nextQuestionNum = (session.current_question || 0) + 1;
+    const nextQ = questions.find((q) => q.order_num === nextQuestionNum);
+
+    if (!nextQ) {
+      // No more questions - end game
+      try {
+        const { error } = await supabase
+          .from("game_sessions")
+          .update({
+            status: "finished",
+            ended_at: new Date().toISOString(),
+          })
+          .eq("id", session.id);
+
+        if (error) throw error;
+        setSession((prev) => (prev ? { ...prev, status: "finished" } : null));
+      } catch (error) {
+        console.error("Error ending game:", error);
+      }
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("game_sessions")
+        .update({
+          status: "question",
+          current_question: nextQuestionNum,
+        })
+        .eq("id", session.id);
+
+      if (error) throw error;
+
+      setSession((prev) =>
+        prev
+          ? { ...prev, status: "question", current_question: nextQuestionNum }
+          : null
+      );
+      setCurrentQuestion(nextQ);
+      setAnsweredCount(0);
+    } catch (error) {
+      console.error("Error advancing game:", error);
+    }
+  }, [session, questions]);
+
   const handleStart = async () => {
     if (!session || questions.length === 0) return;
 
@@ -186,6 +315,7 @@ const GameControl = () => {
       );
       setCurrentQuestion(questions[0]);
       setAnsweredCount(0);
+      setTimeRemaining(questions[0].time_limit);
     } catch (error) {
       console.error("Error starting game:", error);
       toast({
@@ -198,54 +328,24 @@ const GameControl = () => {
     }
   };
 
+  // Manual skip - teacher can skip ahead
   const handleNext = async () => {
-    if (!session || !currentQuestion) return;
-
+    if (!session) return;
+    
     setActionLoading(true);
+    
+    // Clear timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
 
     try {
-      const nextQuestionNum = (session.current_question || 0) + 1;
-
-      // First show results
       if (session.status === "question") {
-        const { error } = await supabase
-          .from("game_sessions")
-          .update({ status: "results" })
-          .eq("id", session.id);
-
-        if (error) throw error;
-
-        setSession((prev) => (prev ? { ...prev, status: "results" } : null));
-
-        // Refresh participant scores
-        const { data: updatedParticipants } = await supabase
-          .from("participants")
-          .select("id, nickname, is_active, total_score")
-          .eq("session_id", session.id);
-
-        if (updatedParticipants) {
-          setParticipants(updatedParticipants);
-        }
-      } else {
-        // Move to next question
-        const { error } = await supabase
-          .from("game_sessions")
-          .update({
-            status: "question",
-            current_question: nextQuestionNum,
-          })
-          .eq("id", session.id);
-
-        if (error) throw error;
-
-        const nextQ = questions.find((q) => q.order_num === nextQuestionNum);
-        setSession((prev) =>
-          prev
-            ? { ...prev, status: "question", current_question: nextQuestionNum }
-            : null
-        );
-        setCurrentQuestion(nextQ || null);
-        setAnsweredCount(0);
+        // Skip to results
+        await handleShowResults();
+      } else if (session.status === "results") {
+        // Skip to next question
+        await handleAutoAdvance();
       }
     } catch (error) {
       console.error("Error advancing game:", error);
@@ -337,13 +437,24 @@ const GameControl = () => {
           </p>
         </div>
 
+        {/* Timer Display */}
+        {(session.status === "question" || session.status === "results") && (
+          <div className="flex justify-center mb-6">
+            <CountdownTimer
+              seconds={timeRemaining}
+              totalSeconds={session.status === "question" ? (currentQuestion?.time_limit || 20) : RESULTS_DISPLAY_TIME}
+              size="large"
+            />
+          </div>
+        )}
+
         {/* Game Status */}
-        <div className="flex items-center justify-center gap-4 mb-8">
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
           <div className="px-4 py-2 rounded-full bg-primary/10 border border-primary/30">
             Status:{" "}
             <span className="font-semibold">
               {session.status === "waiting" && "Așteaptă participanți"}
-              {session.status === "question" && `Întrebarea ${session.current_question}`}
+              {session.status === "question" && `Întrebarea ${session.current_question} din ${questions.length}`}
               {session.status === "results" && "Afișare rezultate"}
               {session.status === "finished" && "Terminat"}
             </span>
@@ -353,10 +464,15 @@ const GameControl = () => {
               Răspunsuri: {answeredCount}/{participants.filter((p) => p.is_active).length}
             </div>
           )}
+          {session.status === "results" && (
+            <div className="px-4 py-2 rounded-full bg-primary/20 text-primary border border-primary/30">
+              Următoarea întrebare în {timeRemaining}s
+            </div>
+          )}
         </div>
 
         {/* Controls */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center gap-4 mb-8">
           <GameControls
             status={session.status}
             currentQuestion={session.current_question}
@@ -371,9 +487,14 @@ const GameControl = () => {
         {/* Current Question Preview */}
         {currentQuestion && session.status !== "waiting" && (
           <div className="mb-8 p-6 bg-card/50 rounded-xl border border-border/50">
-            <p className="text-sm text-muted-foreground mb-2">
-              Întrebarea curentă:
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-muted-foreground">
+                Întrebarea curentă:
+              </p>
+              <span className="text-xs text-muted-foreground">
+                Timp alocat: {currentQuestion.time_limit}s
+              </span>
+            </div>
             <p className="text-xl font-semibold">{currentQuestion.question}</p>
           </div>
         )}
