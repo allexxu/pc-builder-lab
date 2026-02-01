@@ -1,4 +1,4 @@
-import { Play, SkipForward, Square, Loader2 } from "lucide-react";
+import { Play, SkipForward, Square, Loader2, FastForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface GameControlsProps {
@@ -29,7 +29,7 @@ const GameControls = ({
           size="lg"
           onClick={onStart}
           disabled={loading}
-          className="gap-2 bg-green-600 hover:bg-green-700"
+          className="gap-2 bg-primary hover:bg-primary/90"
         >
           {loading ? (
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -40,7 +40,24 @@ const GameControls = ({
         </Button>
       )}
 
-      {(status === "active" || status === "results") && !isLastQuestion && (
+      {status === "question" && (
+        <Button
+          size="lg"
+          onClick={onNext}
+          disabled={loading}
+          variant="outline"
+          className="gap-2"
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <FastForward className="w-5 h-5" />
+          )}
+          Skip la Rezultate
+        </Button>
+      )}
+
+      {status === "results" && !isLastQuestion && (
         <Button
           size="lg"
           onClick={onNext}
@@ -56,7 +73,7 @@ const GameControls = ({
         </Button>
       )}
 
-      {(status === "active" || status === "results") && isLastQuestion && (
+      {status === "results" && isLastQuestion && (
         <Button
           size="lg"
           onClick={onEnd}
@@ -68,7 +85,7 @@ const GameControls = ({
           ) : (
             <Square className="w-5 h-5" />
           )}
-          Afișează Clasamentul
+          Afișează Clasamentul Final
         </Button>
       )}
 
