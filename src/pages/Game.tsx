@@ -20,11 +20,12 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import MainLayout from "@/components/layout/MainLayout";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-type GameMode = "training" | "challenge" | "ranked";
+import GameBoard from "@/components/game/GameBoard";
+import { GameMode } from "@/hooks/useGameState";
 
 const Game = () => {
   const [selectedMode, setSelectedMode] = useState<GameMode | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const isMobile = useIsMobile();
 
   const gameModes = [
@@ -71,9 +72,18 @@ const Game = () => {
 
   const handleStartGame = () => {
     if (!selectedMode) return;
-    // Will navigate to actual game board
-    console.log("Starting game in mode:", selectedMode);
+    setIsPlaying(true);
   };
+
+  const handleExitGame = () => {
+    setIsPlaying(false);
+    setSelectedMode(null);
+  };
+
+  // Show game board when playing
+  if (isPlaying && selectedMode) {
+    return <GameBoard mode={selectedMode} onExit={handleExitGame} />;
+  }
 
   return (
     <MainLayout>
