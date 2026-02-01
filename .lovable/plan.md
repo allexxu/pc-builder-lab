@@ -1,172 +1,131 @@
 
 
-# PC Builder Academy - Platformă Educațională Interactivă
+# Plan: Joc Interactiv de Asamblare PC
 
-## 🎯 Viziune
-O platformă de învățare în limba română care transformă studiul componentelor hardware într-o experiență captivantă, cu accent pe un **joc interactiv de asamblare PC** - perfect pentru mediul școlar.
-
----
-
-## 📐 Structura Aplicației
-
-### 1. Pagina Principală (Home)
-- Hero section cu titlu atractiv și 2 butoane CTA mari: **„Începe Lecția"** și **„Joacă Asamblează PC-ul"**
-- Bară de progres vizuală pentru lecțiile completate
-- Card cu „Best Score" personal și scurtă statistică
-- Design dark cu accente neon subtile (verde/cyan tehnic)
-
-### 2. Hub de Învățare (Lecții)
-**6 Capitole Complete:**
-
-1. **Placa de Bază** - Socket CPU, chipset, sloturi RAM/PCIe, conectori SATA/M.2, BIOS/UEFI, VRM, headers
-2. **Sursa de Alimentare (PSU)** - Conectori (24-pin ATX, EPS, PCIe), putere, eficiență 80 PLUS, protecții, modularitate
-3. **Procesorul (CPU)** - Istorie, frecvență, nuclee/threads, cache, TDP, litografie + **descifrare model Intel & AMD**
-4. **Tipuri de Socket** - LGA vs PGA, diferențe, avantaje/dezavantaje
-5. **Modul de Funcționare** - Fluxul de energie și date în PC
-6. **Sisteme de Răcire** - Air vs AIO, termopastă, airflow, PWM/DC
-
-**Pentru fiecare capitol:**
-- Definiție și rol clar
-- Componente și structură (cu mini-diagrame SVG)
-- Secțiune „De Reținut" cu puncte cheie
-- „Greșeli Frecvente" - ce să evite elevii
-- Mini-quiz (5 întrebări) la final
-
-### 3. Jocul „Asamblează PC-ul" ⭐ (Feature Principal)
-
-**Reprezentare Vizuală:**
-- Placă de bază schematică, curată, cu zone colorate și etichetate clar
-- Componente ca ilustrații simple, recognoscibile, stil educativ
-- Zonele de plasare evidențiate la hover cu tooltip explicativ
-
-**Componente de Asamblat:**
-- CPU (cu indicator orientare)
-- Cooler CPU (variante air/AIO)
-- 2x Module RAM DDR4/DDR5
-- GPU (slot PCIe x16)
-- SSD M.2
-- Cablu ATX 24-pin
-- Cablu EPS 8-pin
-- 2x Ventilatoare carcasă
-
-**Mecanici de Joc:**
-- Drag & drop intuitiv (sau click pe piesă → click pe zonă)
-- Validare ordine realistă (CPU → Cooler → RAM → etc.)
-- Feedback vizual: ✅ snap + sunet la plasare corectă / ❌ shake + hint la greșeală
-- Tooltip-uri educative la hover pe fiecare zonă
-
-**3 Moduri de Joc:**
-| Mod | Descriere |
-|-----|-----------|
-| **Training** | Fără timp, hint-uri nelimitate, explicații pas cu pas |
-| **Challenge** | Timer activ, 3 vieți, penalizări |
-| **Ranked** | Competitiv, contribuie la leaderboard |
-
-**Sistem de Scor:**
-- +100 puncte plasare corectă
-- -30 puncte greșeală
-- Bonus timp rămas
-- Bonus „Fără Greșeli" și „Fără Hint-uri"
-
-**Achievements:**
-- 🏆 RAM Whisperer
-- 🔌 Cable Master
-- ⚡ Perfect Run
-- 🎯 Speed Demon
-
-### 4. Leaderboard
-- Clasament Global + Săptămânal
-- Filtre: mod de joc (Challenge/Ranked), perioadă
-- Afișare Top 20 + poziția curentă a elevului
-- Opțional: clasament pe clasă/școală (pentru profesori)
-
-### 5. Profil Utilizator
-- Autentificare (email/parolă sau Google)
-- Statistici: best time, best score, acuratețe, număr jocuri
-- Progres la lecții (vizual, cu checkmarks)
-- Colecție de badge-uri câștigate
-- Istoric rezultate quiz-uri
-
-### 6. Test Final (Opțional - Bonus)
-- 20 de întrebări din toate capitolele
-- Scor final și posibilitate de a genera „Diplomă/Certificat"
-- Vizualizare PDF sau share pe ecran
+## Rezumat
+Vom implementa un joc educativ de tip drag & drop unde elevii vor plasa componente hardware pe o placă de bază schematică. Jocul va include 3 moduri (Training, Challenge, Ranked), validare a ordinii de asamblare, feedback vizual și sistem de punctaj.
 
 ---
 
-## 🎨 Design UI/UX
+## Ce vom construi
 
-**Temă Vizuală:**
-- Dark mode principal (#0a0f1a) cu accente neon cyan (#00d4ff) și verde (#10b981)
-- Carduri cu border subtle și shadow-uri soft
-- Tipografie clară, font monospace pentru coduri/modele
+### 1. Arhitectura Jocului
 
-**Animații:**
-- Hover scale pe carduri și butoane
-- Bounce ușor la plasare corectă în joc
-- Confetti la record personal
-- Fade-in pentru secțiuni
+```text
+Game.tsx (selectie mod)
+    └── GameBoard.tsx (jocul propriu-zis)
+            ├── MotherboardSVG.tsx (placa de baza cu zone de drop)
+            ├── ComponentCard.tsx (piesa draggable)
+            ├── GameHUD.tsx (scor, timer, vieti, hints)
+            └── GameEndScreen.tsx (rezultat final)
+```
 
-**Responsive:**
-- Desktop: layout complet cu placă de bază mare
-- Tablet: layout adaptat cu zone de drop ajustate
-- Mobil: funcțional, dar cu notificare că experiența e optimă pe desktop
+### 2. Componentele Hardware de Asamblat
 
----
+| Componenta | Zona pe Placa | Ordine | Dependenta |
+|------------|---------------|--------|------------|
+| CPU | Socket central | 1 | - |
+| Cooler CPU | Pe CPU | 2 | CPU |
+| RAM x2 | Sloturi RAM | 3-4 | - |
+| SSD M.2 | Slot M.2 | 5 | - |
+| GPU | PCIe x16 | 6 | - |
+| Cablu ATX 24-pin | Conector ATX | 7 | - |
+| Cablu EPS 8-pin | Conector EPS | 8 | - |
+| Ventilatoare x2 | Fan headers | 9-10 | - |
 
-## 🗄️ Backend (Supabase/Lovable Cloud)
+### 3. Mecanici de Joc
 
-**Tabele Principale:**
-- `users` - profiluri, progres general
-- `game_runs` - scor, timp, greșeli, mod, timestamp
-- `lesson_progress` - capitol completat, scor quiz
-- `quiz_results` - răspunsuri detaliate
-- `achievements` - badge-uri deblocate per user
-- `user_roles` - rol (elev/profesor) pentru acces diferențiat
+**Drag & Drop:**
+- Click pe componenta → componenta devine selectata
+- Drag spre zona corecta → snap-in cu animatie bounce
+- Click alternativ: click piesa, apoi click zona
 
-**Funcționalități:**
-- Leaderboard calculat din game_runs (agregare pe mod/perioadă)
-- RLS: fiecare user vede doar datele proprii (excepție leaderboard public)
-- Local storage fallback pentru experiența offline
+**Validari:**
+- Verificare zona corecta (CPU in socket, RAM in slot RAM)
+- Verificare ordine (cooler doar dupa CPU)
+- Feedback imediat: verde = corect, rosu = gresit
 
----
-
-## 📚 Conținut Educațional
-
-- Texte complete în română, structurate pe niveluri
-- Exemple concrete: descifrare Intel i5-12600KF și AMD Ryzen 5 7600X
-- Mini-diagrame SVG pentru: layout placă de bază, flux energie, tipuri socket
-- Secțiuni „De Reținut" evidențiate vizual
-- Greșeli frecvente cu explicații clare
+**Moduri:**
+- **Training:** fara timer, hint-uri nelimitate, explicatii
+- **Challenge:** timer 5 min, 3 vieti, -30 puncte/gresit
+- **Ranked:** timer 4 min, fara hints, scor pentru clasament
 
 ---
 
-## 🚀 Ordinea de Implementare
+## Detalii Tehnice
 
-**Faza 1: Fundația**
-- Setup proiect, design system, navigare
-- Pagina Home cu CTA-uri
-- Structura lecțiilor (layout + conținut)
+### Fisiere Noi
 
-**Faza 2: Jocul (Prioritar)**
-- Canvas/board cu placa de bază
-- Componente draggable
-- Logica de validare și ordine
-- Modul Training funcțional
-- Scorare și feedback
+1. **`src/components/game/GameBoard.tsx`** - Componenta principala a jocului
+2. **`src/components/game/MotherboardSVG.tsx`** - Placa de baza SVG cu zone interactive
+3. **`src/components/game/ComponentCard.tsx`** - Componenta draggable pentru fiecare piesa
+4. **`src/components/game/DropZone.tsx`** - Zona de plasare pe placa
+5. **`src/components/game/GameHUD.tsx`** - Interfata cu scor, timer, vieti
+6. **`src/components/game/GameEndScreen.tsx`** - Ecran final cu rezultate
+7. **`src/hooks/useGameState.ts`** - Hook pentru state management joc
+8. **`src/data/gameComponents.ts`** - Definitii componente si zone
 
-**Faza 3: Autentificare & Persistare**
-- Login/Signup cu Supabase
-- Salvare progres și scoruri
-- Profil utilizator
+### Placa de Baza (SVG Schematic)
 
-**Faza 4: Competiție**
-- Modurile Challenge și Ranked
-- Leaderboard
-- Achievements și badge-uri
+Design simplificat cu zone colorate:
+- Socket CPU: patrat central, culoare cyan
+- Sloturi RAM: 4 dreptunghiuri verticale, culoare verde
+- PCIe x16: dreptunghi lung orizontal, culoare violet
+- M.2: dreptunghi mic, culoare portocaliu
+- Conectori ATX/EPS: zone in dreapta, culoare galben
+- Fan headers: cercuri mici in colturi
 
-**Faza 5: Conținut Complet**
-- Toate cele 6 capitole cu quiz-uri
-- Test final cu certificat
-- Polish final (animații, sunete, confetti)
+### State Management (useGameState hook)
+
+```text
+GameState:
+  - mode: "training" | "challenge" | "ranked"
+  - phase: "playing" | "paused" | "completed"
+  - score: number
+  - timeRemaining: number (pentru Challenge/Ranked)
+  - lives: number (pentru Challenge)
+  - hintsUsed: number
+  - placedComponents: string[]
+  - currentStep: number
+  - mistakes: number
+```
+
+### Sistem de Punctaj
+
+- +100 puncte: plasare corecta
+- -30 puncte: gresit (doar Challenge/Ranked)
+- Bonus timp: `(timeRemaining / totalTime) * 200`
+- Bonus perfect: x2 daca 0 greseli
+- Bonus no-hints: +150 daca 0 hints folosite
+
+---
+
+## Experienta Utilizator
+
+1. **Selectie mod** (pagina existenta Game.tsx) → click "Incepe Jocul"
+2. **Ecran de joc** cu:
+   - Stanga: lista componentelor disponibile
+   - Centru: placa de baza interactiva
+   - Sus: HUD cu scor/timer/vieti
+3. **Interactiune:**
+   - Hover pe zona → glow + tooltip educativ
+   - Drag componenta → shadow urmareste cursorul
+   - Drop pe zona corecta → animatie bounce + sunet + "+100"
+   - Drop gresit → shake + mesaj de eroare
+4. **La finalizare:** ecran cu scor total, breakdown, butoane "Joaca din nou" / "Leaderboard"
+
+---
+
+## Pasi de Implementare
+
+1. Creez structura de date pentru componente si zone (`gameComponents.ts`)
+2. Construiesc placa de baza SVG cu zone interactive (`MotherboardSVG.tsx`)
+3. Implementez componentele draggable (`ComponentCard.tsx`, `DropZone.tsx`)
+4. Creez hook-ul pentru game state (`useGameState.ts`)
+5. Asamblam totul in `GameBoard.tsx` cu logica de drag & drop
+6. Adaug HUD-ul cu timer/scor/vieti (`GameHUD.tsx`)
+7. Creez ecranul de final (`GameEndScreen.tsx`)
+8. Integrez in pagina Game.tsx existenta
+9. Adaug animatii si feedback vizual
+10. Testez toate cele 3 moduri de joc
 
