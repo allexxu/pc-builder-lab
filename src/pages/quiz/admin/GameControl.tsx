@@ -7,7 +7,6 @@ import ParticipantsList from "@/components/quiz/ParticipantsList";
 import GameControls from "@/components/quiz/GameControls";
 import LeaderboardList from "@/components/quiz/LeaderboardList";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
@@ -37,7 +36,6 @@ const GameControl = () => {
   const { gamePin } = useParams<{ gamePin: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -48,12 +46,13 @@ const GameControl = () => {
   const [answeredCount, setAnsweredCount] = useState(0);
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    const isAuthenticated = localStorage.getItem("teacher_authenticated") === "true";
+    if (!isAuthenticated) {
       navigate("/quiz/admin/login");
       return;
     }
 
-    if (!gamePin || !user) return;
+    if (!gamePin) return;
 
     const fetchData = async () => {
       // Fetch session
@@ -61,7 +60,6 @@ const GameControl = () => {
         .from("game_sessions")
         .select("id, quiz_id, status, current_question, game_pin")
         .eq("game_pin", gamePin)
-        .eq("created_by", user.id)
         .maybeSingle();
 
       if (sessionError || !sessionData) {
@@ -108,7 +106,7 @@ const GameControl = () => {
     };
 
     fetchData();
-  }, [gamePin, user, authLoading, navigate, toast]);
+  }, [gamePin, navigate, toast]);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -307,7 +305,7 @@ const GameControl = () => {
     }
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <QuizLayout>
         <div className="flex-1 flex items-center justify-center">

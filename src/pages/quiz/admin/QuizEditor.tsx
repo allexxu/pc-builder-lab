@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import QuizLayout from "@/components/quiz/QuizLayout";
-import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Answer {
@@ -52,7 +51,6 @@ const QuizEditor = () => {
   const isNew = quizId === "new";
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -62,15 +60,16 @@ const QuizEditor = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    const isAuthenticated = localStorage.getItem("teacher_authenticated") === "true";
+    if (!isAuthenticated) {
       navigate("/quiz/admin/login");
       return;
     }
 
-    if (!isNew && user) {
+    if (!isNew) {
       fetchQuiz();
     }
-  }, [user, authLoading, isNew, quizId, navigate]);
+  }, [isNew, quizId, navigate]);
 
   const fetchQuiz = async () => {
     const { data: quiz, error } = await supabase
@@ -247,7 +246,7 @@ const QuizEditor = () => {
             title,
             description: description || null,
             is_published: isPublished,
-            created_by: user?.id,
+            created_by: "00000000-0000-0000-0000-000000000000", // Teacher placeholder
           })
           .select("id")
           .single();
@@ -324,7 +323,7 @@ const QuizEditor = () => {
     }
   };
 
-  if (authLoading || loading) {
+  if (loading) {
     return (
       <QuizLayout>
         <div className="flex-1 flex items-center justify-center">
