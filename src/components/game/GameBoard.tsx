@@ -242,46 +242,46 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
               </div>
             </div>
             
-            {/* Container that fits viewport without scroll */}
+            {/* Container that fits viewport properly */}
             <div 
-              className="flex items-center justify-center rounded-2xl border-2 border-border bg-card/30 p-2"
+              className="flex items-center justify-center rounded-2xl border-2 border-border bg-card/30 p-4 overflow-hidden"
               style={{
-                maxHeight: "calc(100vh - 280px)",
-                minHeight: "400px",
+                height: "clamp(450px, calc(100vh - 240px), 700px)",
               }}
             >
               <div 
                 ref={boardRef}
                 className={cn(
-                  "relative transition-all duration-300",
+                  "relative transition-all duration-300 h-full w-full flex items-center justify-center",
                   dragState.isDragging && "border-primary/50",
                   showFeedback?.type === "success" && "animate-bounce-success",
                   showFeedback?.type === "error" && "animate-shake"
                 )}
-                style={{
-                  transform: `scale(${zoomLevel / 100})`,
-                  transformOrigin: "center center",
-                  maxWidth: "100%",
-                  maxHeight: "100%",
-                }}
               >
-              {/* Drop zone overlay - shows when dragging */}
-                <DropZoneOverlay
-                  draggedComponent={dragState.draggedComponent}
-                  hoveredZone={dragState.hoveredZone}
-                  isValidDrop={dragState.isValidDrop}
-                  placedComponents={state.placedComponents}
-                  gameMode={state.mode}
-                />
+                <div 
+                  style={{
+                    transform: `scale(${zoomLevel / 100})`,
+                    transformOrigin: "center center",
+                  }}
+                >
+                  {/* Drop zone overlay - shows when dragging */}
+                  <DropZoneOverlay
+                    draggedComponent={dragState.draggedComponent}
+                    hoveredZone={dragState.hoveredZone}
+                    isValidDrop={dragState.isValidDrop}
+                    placedComponents={state.placedComponents}
+                    gameMode={state.mode}
+                  />
 
-                <MotherboardSVG
-                  placedComponents={state.placedComponents}
-                  selectedComponent={null}
-                  highlightedZone={dragState.hoveredZone}
-                  onZoneClick={() => {}} // Disabled - using drag now
-                  onZoneHover={() => {}} // Disabled - drag handles this
-                  gameMode={state.mode}
-                />
+                  <MotherboardSVG
+                    placedComponents={state.placedComponents}
+                    selectedComponent={null}
+                    highlightedZone={dragState.hoveredZone}
+                    onZoneClick={() => {}} // Disabled - using drag now
+                    onZoneHover={() => {}} // Disabled - drag handles this
+                    gameMode={state.mode}
+                  />
+                </div>
                 
                 {/* Floating score indicator */}
                 {floatingScore && (
