@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface LoginRequest {
@@ -23,6 +23,10 @@ serve(async (req: Request): Promise<Response> => {
     const teacherEmail = Deno.env.get("TEACHER_EMAIL");
     const teacherPassword = Deno.env.get("TEACHER_PASSWORD");
 
+    console.log("Login attempt for email:", email);
+    console.log("TEACHER_EMAIL exists:", !!teacherEmail);
+    console.log("TEACHER_PASSWORD exists:", !!teacherPassword);
+
     if (!teacherEmail || !teacherPassword) {
       console.error("Teacher credentials not configured");
       return new Response(
@@ -31,7 +35,13 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    const isValid = email === teacherEmail && password === teacherPassword;
+    const emailMatch = email.trim().toLowerCase() === teacherEmail.trim().toLowerCase();
+    const passwordMatch = password === teacherPassword;
+    
+    console.log("Email match:", emailMatch);
+    console.log("Password match:", passwordMatch);
+
+    const isValid = emailMatch && passwordMatch;
 
     return new Response(
       JSON.stringify({ valid: isValid }),
