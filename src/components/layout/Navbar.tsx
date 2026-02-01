@@ -45,12 +45,14 @@ const Navbar = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="sm">
-              Conectare
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/profil">Conectare</Link>
             </Button>
-            <Button size="sm" className="neon-glow">
-              <Zap className="h-4 w-4 mr-1" />
-              Începe Acum
+            <Button asChild size="sm" className="neon-glow">
+              <Link to="/lectii">
+                <Zap className="h-4 w-4 mr-1" />
+                Începe Acum
+              </Link>
             </Button>
           </div>
 
@@ -80,12 +82,16 @@ const Navbar = () => {
               </Link>
             ))}
             <div className="pt-4 border-t border-border space-y-2">
-              <Button variant="ghost" className="w-full justify-start">
-                Conectare
+              <Button asChild variant="ghost" className="w-full justify-start">
+                <Link to="/profil" onClick={() => setIsOpen(false)}>
+                  Conectare
+                </Link>
               </Button>
-              <Button className="w-full neon-glow">
-                <Zap className="h-4 w-4 mr-1" />
-                Începe Acum
+              <Button asChild className="w-full neon-glow">
+                <Link to="/lectii" onClick={() => setIsOpen(false)}>
+                  <Zap className="h-4 w-4 mr-1" />
+                  Începe Acum
+                </Link>
               </Button>
             </div>
           </div>

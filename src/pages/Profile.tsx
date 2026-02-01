@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { 
   User, 
   Trophy, 
@@ -16,6 +16,8 @@ import {
   Cpu,
   CheckCircle2
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,12 +26,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MainLayout from "@/components/layout/MainLayout";
 
 const Profile = () => {
-  // Mock user data
-  const user = {
-    username: "ElevCurios",
-    email: "elev@scoala.ro",
-    joinedDate: "Ianuarie 2025",
-    avatar: null,
+  const { user, signOut, loading } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Deconectat cu succes!");
+    navigate("/");
+  };
+  // User data - uses real data if logged in, otherwise mock data
+  const userData = {
+    username: user?.user_metadata?.display_name || user?.email?.split("@")[0] || "ElevCurios",
+    email: user?.email || "elev@scoala.ro",
+    joinedDate: user?.created_at ? new Date(user.created_at).toLocaleDateString("ro-RO", { month: "long", year: "numeric" }) : "Ianuarie 2025",
+    avatar: user?.user_metadata?.avatar_url || null,
   };
 
   const stats = {
@@ -85,26 +95,26 @@ const Profile = () => {
 
             {/* User Info */}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-1">{user.username}</h1>
-              <p className="text-muted-foreground mb-2">{user.email}</p>
+              <h1 className="text-3xl font-bold mb-1">{userData.username}</h1>
+              <p className="text-muted-foreground mb-2">{userData.email}</p>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="outline" className="text-primary border-primary">
                   <Trophy className="h-3 w-3 mr-1" />
                   Rank #{stats.rank}
                 </Badge>
                 <Badge variant="outline">
-                  Membru din {user.joinedDate}
+                  Membru din {userData.joinedDate}
                 </Badge>
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => toast.info("Setările vor fi disponibile în curând!")}>
                 <Settings className="h-4 w-4 mr-2" />
                 Setări
               </Button>
-              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Ieșire
               </Button>
