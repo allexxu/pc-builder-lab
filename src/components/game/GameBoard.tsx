@@ -242,20 +242,27 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
               </div>
             </div>
             
-            {/* Scrollable container for zoom */}
-            <div className="overflow-auto max-h-[70vh] rounded-2xl border-2 border-border bg-card/30">
+            {/* Container that fits viewport without scroll */}
+            <div 
+              className="flex items-center justify-center rounded-2xl border-2 border-border bg-card/30 p-2"
+              style={{
+                maxHeight: "calc(100vh - 280px)",
+                minHeight: "400px",
+              }}
+            >
               <div 
                 ref={boardRef}
                 className={cn(
-                  "relative p-4 transition-all duration-300",
+                  "relative transition-all duration-300",
                   dragState.isDragging && "border-primary/50",
                   showFeedback?.type === "success" && "animate-bounce-success",
                   showFeedback?.type === "error" && "animate-shake"
                 )}
                 style={{
                   transform: `scale(${zoomLevel / 100})`,
-                  transformOrigin: "top left",
-                  width: `${100 / (zoomLevel / 100)}%`,
+                  transformOrigin: "center center",
+                  maxWidth: "100%",
+                  maxHeight: "100%",
                 }}
               >
               {/* Drop zone overlay - shows when dragging */}
