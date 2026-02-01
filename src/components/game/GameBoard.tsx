@@ -10,9 +10,10 @@ import GameHUD from "./GameHUD";
 import GameEndScreen from "./GameEndScreen";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Info, GripVertical } from "lucide-react";
+import { ArrowLeft, Info, GripVertical, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Slider } from "@/components/ui/slider";
 
 interface GameBoardProps {
   mode: GameMode;
@@ -24,6 +25,7 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
   const [hintComponent, setHintComponent] = useState<ComponentId | null>(null);
   const [showFeedback, setShowFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [floatingScore, setFloatingScore] = useState<{ points: number; x: number; y: number } | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(100);
   const boardRef = useRef<HTMLDivElement>(null);
 
   // Drag and drop system
@@ -199,61 +201,97 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
 
           {/* Motherboard area with drop zones */}
           <div className="order-1 lg:order-2 flex flex-col items-center lg:items-stretch w-full">
-            <h3 className="text-lg font-semibold mb-4 text-center">
-              Placă de Bază
-              {dragState.isDragging && (
-                <span className="text-accent text-sm ml-2 animate-pulse">
-                  — Plasează componenta aici!
-                </span>
-              )}
-            </h3>
-            
-            <div 
-              ref={boardRef}
-              className={cn(
-                // Important: give the board a real width on desktop.
-                // Otherwise, because the parent is `items-center`, the board can shrink-to-fit
-                // its contents and the SVG ends up rendering much smaller than the available space.
-                "relative w-full max-w-[1100px] xl:max-w-[1300px] p-4 rounded-2xl border-2 border-border bg-card/50",
-                "transition-all duration-300",
-                dragState.isDragging && "border-primary/50 neon-glow",
-                showFeedback?.type === "success" && "border-accent animate-bounce-success",
-                showFeedback?.type === "error" && "border-destructive animate-shake"
-              )}
-            >
-              {/* Drop zone overlay - shows when dragging */}
-              <DropZoneOverlay
-                draggedComponent={dragState.draggedComponent}
-                hoveredZone={dragState.hoveredZone}
-                isValidDrop={dragState.isValidDrop}
-                placedComponents={state.placedComponents}
-              />
-
-              <MotherboardSVG
-                placedComponents={state.placedComponents}
-                selectedComponent={null}
-                highlightedZone={dragState.hoveredZone}
-                onZoneClick={() => {}} // Disabled - using drag now
-                onZoneHover={() => {}} // Disabled - drag handles this
-              />
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <h3 className="text-lg font-semibold">
+                Placă de Bază
+                {dragState.isDragging && (
+                  <span className="text-accent text-sm ml-2 animate-pulse">
+                    — Plasează componenta aici!
+                  </span>
+                )}
+              </h3>
               
-              {/* Floating score indicator */}
-              {floatingScore && (
-                <div 
-                  className={cn(
-                    "absolute pointer-events-none animate-float-up",
-                    "text-3xl font-bold",
-                    floatingScore.points > 0 ? "text-accent" : "text-destructive"
-                  )}
-                  style={{
-                    top: "40%",
-                    left: "50%",
-                    transform: "translateX(-50%)"
-                  }}
-                >
-                  {floatingScore.points > 0 ? `+${floatingScore.points}` : floatingScore.points}
+              {/* Zoom Control */}
+              <div className="flex items-center gap-3 bg-card/50 px-4 py-2 rounded-lg border border-border">
+                <ZoomOut className="w-4 h-4 text-muted-foreground" />
+                <Slider
+                  value={[zoomLevel]}
+                  onValueChange={(value) => setZoomLevel(value[0])}
+                  min={80}
+                  max={180}
+                  step={10}
+                  className="w-32"
+                />
+                <ZoomIn className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-mono text-muted-foreground w-12">{zoomLevel}%</span>
+                
+                {/* Quick zoom buttons */}
+                <div className="flex gap-1 ml-2">
+                  {[100, 130, 160].map(level => (
+                    <Button
+                      key={level}
+                      variant={zoomLevel === level ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setZoomLevel(level)}
+                    >
+                      {level}%
+                    </Button>
+                  ))}
                 </div>
-              )}
+              </div>
+            </div>
+            
+            {/* Scrollable container for zoom */}
+            <div className="overflow-auto max-h-[70vh] rounded-2xl border-2 border-border bg-card/30">
+              <div 
+                ref={boardRef}
+                className={cn(
+                  "relative p-4 transition-all duration-300",
+                  dragState.isDragging && "border-primary/50",
+                  showFeedback?.type === "success" && "animate-bounce-success",
+                  showFeedback?.type === "error" && "animate-shake"
+                )}
+                style={{
+                  transform: `scale(${zoomLevel / 100})`,
+                  transformOrigin: "top left",
+                  width: `${100 / (zoomLevel / 100)}%`,
+                }}
+              >
+                {/* Drop zone overlay - shows when dragging */}
+                <DropZoneOverlay
+                  draggedComponent={dragState.draggedComponent}
+                  hoveredZone={dragState.hoveredZone}
+                  isValidDrop={dragState.isValidDrop}
+                  placedComponents={state.placedComponents}
+                />
+
+                <MotherboardSVG
+                  placedComponents={state.placedComponents}
+                  selectedComponent={null}
+                  highlightedZone={dragState.hoveredZone}
+                  onZoneClick={() => {}} // Disabled - using drag now
+                  onZoneHover={() => {}} // Disabled - drag handles this
+                />
+                
+                {/* Floating score indicator */}
+                {floatingScore && (
+                  <div 
+                    className={cn(
+                      "absolute pointer-events-none animate-float-up",
+                      "text-3xl font-bold",
+                      floatingScore.points > 0 ? "text-accent" : "text-destructive"
+                    )}
+                    style={{
+                      top: "40%",
+                      left: "50%",
+                      transform: "translateX(-50%)"
+                    }}
+                  >
+                    {floatingScore.points > 0 ? `+${floatingScore.points}` : floatingScore.points}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Legend */}
