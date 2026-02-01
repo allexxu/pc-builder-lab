@@ -46,6 +46,42 @@ export type Database = {
           },
         ]
       }
+      game_history: {
+        Row: {
+          accuracy: number
+          completed: boolean
+          id: string
+          mistakes: number
+          mode: string
+          played_at: string
+          score: number
+          time_seconds: number
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number
+          completed?: boolean
+          id?: string
+          mistakes?: number
+          mode?: string
+          played_at?: string
+          score?: number
+          time_seconds?: number
+          user_id: string
+        }
+        Update: {
+          accuracy?: number
+          completed?: boolean
+          id?: string
+          mistakes?: number
+          mode?: string
+          played_at?: string
+          score?: number
+          time_seconds?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       game_sessions: {
         Row: {
           created_at: string
@@ -89,6 +125,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lesson_progress: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          lesson_slug: string
+          quiz_score: number | null
+          quiz_total: number
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_slug: string
+          quiz_score?: number | null
+          quiz_total?: number
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_slug?: string
+          quiz_score?: number | null
+          quiz_total?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       participants: {
         Row: {
@@ -269,6 +338,27 @@ export type Database = {
           },
         ]
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -286,6 +376,39 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_stats: {
+        Row: {
+          best_score: number
+          best_time_seconds: number | null
+          lessons_completed: number
+          rank: number | null
+          total_accuracy: number
+          total_games: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_score?: number
+          best_time_seconds?: number | null
+          lessons_completed?: number
+          rank?: number | null
+          total_accuracy?: number
+          total_games?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_score?: number
+          best_time_seconds?: number | null
+          lessons_completed?: number
+          rank?: number | null
+          total_accuracy?: number
+          total_games?: number
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

@@ -10,77 +10,105 @@ import {
   Settings,
   LogOut,
   ChevronRight,
-  Star,
   Zap,
-  Cable,
-  Cpu,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLessonProgress } from "@/hooks/useLessonProgress";
+import { useGameHistory } from "@/hooks/useGameHistory";
+import { useAchievements } from "@/hooks/useAchievements";
+import { useUserStats } from "@/hooks/useUserStats";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import MainLayout from "@/components/layout/MainLayout";
+import { useEffect } from "react";
+
+const TOTAL_LESSONS = 6;
+
+const LESSON_TITLES: Record<string, string> = {
+  "placa-de-baza": "Placa de Bază",
+  "sursa-alimentare": "Sursa de Alimentare",
+  "procesorul": "Procesorul (CPU)",
+  "tipuri-socket": "Tipuri de Socket",
+  "modul-functionare": "Modul de Funcționare",
+  "sisteme-racire": "Sisteme de Răcire",
+};
 
 const Profile = () => {
-  const { user, signOut, loading } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
+  const { progress, loading: progressLoading, getCompletedCount } = useLessonProgress();
+  const { games, loading: gamesLoading, formatTime, getRelativeDate } = useGameHistory();
+  const { achievements, loading: achievementsLoading, getUnlockedCount, getTotalCount } = useAchievements();
+  const { stats, loading: statsLoading, getAverageAccuracy, formatBestTime } = useUserStats();
   const navigate = useNavigate();
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [authLoading, user, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
     toast.success("Deconectat cu succes!");
     navigate("/");
   };
-  // User data - uses real data if logged in, otherwise mock data
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <MainLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Don't render if not logged in (redirect will happen)
+  if (!user) {
+    return null;
+  }
+
+  const isLoading = progressLoading || gamesLoading || achievementsLoading || statsLoading;
+
+  // User data from auth
   const userData = {
-    username: user?.user_metadata?.display_name || user?.email?.split("@")[0] || "ElevCurios",
-    email: user?.email || "elev@scoala.ro",
-    joinedDate: user?.created_at ? new Date(user.created_at).toLocaleDateString("ro-RO", { month: "long", year: "numeric" }) : "Ianuarie 2025",
-    avatar: user?.user_metadata?.avatar_url || null,
+    username: user.user_metadata?.display_name || user.email?.split("@")[0] || "Utilizator",
+    email: user.email || "",
+    joinedDate: new Date(user.created_at).toLocaleDateString("ro-RO", { month: "long", year: "numeric" }),
+    avatar: user.user_metadata?.avatar_url || null,
   };
 
-  const stats = {
-    bestScore: 8750,
-    bestTime: "4:12",
-    totalGames: 15,
-    accuracy: 87,
-    lessonsCompleted: 2,
-    totalLessons: 6,
-    quizzesPassed: 2,
-    totalQuizzes: 6,
-    rank: 15,
-  };
+  const completedLessonsCount = getCompletedCount();
 
-  const achievements = [
-    { id: 1, name: "Primul Pas", description: "Completează prima lecție", icon: BookOpen, unlocked: true },
-    { id: 2, name: "RAM Whisperer", description: "Plasează RAM-ul corect de 10 ori", icon: Cpu, unlocked: true },
-    { id: 3, name: "Cable Master", description: "Conectează toate cablurile fără greșeli", icon: Cable, unlocked: false },
-    { id: 4, name: "Speed Demon", description: "Finalizează jocul în sub 3 minute", icon: Timer, unlocked: false },
-    { id: 5, name: "Perfect Run", description: "0 greșeli într-un joc Challenge", icon: Star, unlocked: false },
-    { id: 6, name: "Top 10", description: "Ajunge în Top 10 pe leaderboard", icon: Trophy, unlocked: false },
-  ];
-
-  const recentGames = [
-    { id: 1, mode: "Challenge", score: 8750, time: "4:12", accuracy: 87, date: "Azi" },
-    { id: 2, mode: "Training", score: 7200, time: "5:45", accuracy: 92, date: "Ieri" },
-    { id: 3, mode: "Challenge", score: 6800, time: "4:55", accuracy: 78, date: "Ieri" },
-    { id: 4, mode: "Ranked", score: 5400, time: "5:20", accuracy: 72, date: "Acum 2 zile" },
-    { id: 5, mode: "Training", score: 8100, time: "6:10", accuracy: 95, date: "Acum 3 zile" },
-  ];
-
+  // Build lessons progress list
   const lessonsProgress = [
-    { id: 1, title: "Placa de Bază", completed: true, quizScore: "5/5" },
-    { id: 2, title: "Sursa de Alimentare", completed: true, quizScore: "4/5" },
-    { id: 3, title: "Procesorul (CPU)", completed: false, quizScore: null },
-    { id: 4, title: "Tipuri de Socket", completed: false, quizScore: null },
-    { id: 5, title: "Modul de Funcționare", completed: false, quizScore: null },
-    { id: 6, title: "Sisteme de Răcire", completed: false, quizScore: null },
-  ];
-
-  const unlockedCount = achievements.filter(a => a.unlocked).length;
+    "placa-de-baza",
+    "sursa-alimentare", 
+    "procesorul",
+    "tipuri-socket",
+    "modul-functionare",
+    "sisteme-racire",
+  ].map((slug, index) => {
+    const lessonProgress = progress.find(p => p.lesson_slug === slug);
+    return {
+      id: index + 1,
+      slug,
+      title: LESSON_TITLES[slug],
+      completed: lessonProgress?.completed || false,
+      quizScore: lessonProgress?.quiz_score 
+        ? `${lessonProgress.quiz_score}/${lessonProgress.quiz_total}`
+        : null,
+    };
+  });
 
   return (
     <MainLayout>
@@ -98,10 +126,12 @@ const Profile = () => {
               <h1 className="text-3xl font-bold mb-1">{userData.username}</h1>
               <p className="text-muted-foreground mb-2">{userData.email}</p>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="text-primary border-primary">
-                  <Trophy className="h-3 w-3 mr-1" />
-                  Rank #{stats.rank}
-                </Badge>
+                {stats.rank && (
+                  <Badge variant="outline" className="text-primary border-primary">
+                    <Trophy className="h-3 w-3 mr-1" />
+                    Rank #{stats.rank}
+                  </Badge>
+                )}
                 <Badge variant="outline">
                   Membru din {userData.joinedDate}
                 </Badge>
@@ -130,7 +160,11 @@ const Profile = () => {
             <Card className="tech-card">
               <CardContent className="pt-6 text-center">
                 <Trophy className="h-8 w-8 text-accent mx-auto mb-2" />
-                <div className="text-2xl font-bold text-foreground">{stats.bestScore.toLocaleString()}</div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-20 mx-auto mb-1" />
+                ) : (
+                  <div className="text-2xl font-bold text-foreground">{stats.best_score.toLocaleString()}</div>
+                )}
                 <p className="text-xs text-muted-foreground">Cel Mai Bun Scor</p>
               </CardContent>
             </Card>
@@ -138,7 +172,11 @@ const Profile = () => {
             <Card className="tech-card">
               <CardContent className="pt-6 text-center">
                 <Timer className="h-8 w-8 text-primary mx-auto mb-2" />
-                <div className="text-2xl font-bold text-foreground">{stats.bestTime}</div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16 mx-auto mb-1" />
+                ) : (
+                  <div className="text-2xl font-bold text-foreground">{formatBestTime()}</div>
+                )}
                 <p className="text-xs text-muted-foreground">Cel Mai Bun Timp</p>
               </CardContent>
             </Card>
@@ -146,7 +184,11 @@ const Profile = () => {
             <Card className="tech-card">
               <CardContent className="pt-6 text-center">
                 <Target className="h-8 w-8 text-accent mx-auto mb-2" />
-                <div className="text-2xl font-bold text-foreground">{stats.accuracy}%</div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-12 mx-auto mb-1" />
+                ) : (
+                  <div className="text-2xl font-bold text-foreground">{getAverageAccuracy()}%</div>
+                )}
                 <p className="text-xs text-muted-foreground">Acuratețe Medie</p>
               </CardContent>
             </Card>
@@ -154,7 +196,11 @@ const Profile = () => {
             <Card className="tech-card">
               <CardContent className="pt-6 text-center">
                 <Gamepad2 className="h-8 w-8 text-primary mx-auto mb-2" />
-                <div className="text-2xl font-bold text-foreground">{stats.totalGames}</div>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-10 mx-auto mb-1" />
+                ) : (
+                  <div className="text-2xl font-bold text-foreground">{stats.total_games}</div>
+                )}
                 <p className="text-xs text-muted-foreground">Jocuri Jucate</p>
               </CardContent>
             </Card>
@@ -187,44 +233,52 @@ const Profile = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Award className="h-5 w-5 text-accent" />
-                    Badge-uri ({unlockedCount}/{achievements.length})
+                    Badge-uri ({getUnlockedCount()}/{getTotalCount()})
                   </CardTitle>
                   <CardDescription>
                     Colectează toate badge-urile completând provocări
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {achievements.map((achievement) => (
-                      <div 
-                        key={achievement.id}
-                        className={`p-4 rounded-lg border ${
-                          achievement.unlocked 
-                            ? "bg-accent/10 border-accent/30" 
-                            : "bg-muted/20 border-border opacity-60"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                            achievement.unlocked ? "bg-accent/20" : "bg-muted"
-                          }`}>
-                            <achievement.icon className={`h-5 w-5 ${
-                              achievement.unlocked ? "text-accent" : "text-muted-foreground"
-                            }`} />
-                          </div>
-                          <div>
-                            <p className="font-medium flex items-center gap-2">
-                              {achievement.name}
-                              {achievement.unlocked && (
-                                <CheckCircle2 className="h-4 w-4 text-accent" />
-                              )}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                  {achievementsLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <Skeleton key={i} className="h-20 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {achievements.map((achievement) => (
+                        <div 
+                          key={achievement.id}
+                          className={`p-4 rounded-lg border ${
+                            achievement.unlocked 
+                              ? "bg-accent/10 border-accent/30" 
+                              : "bg-muted/20 border-border opacity-60"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              achievement.unlocked ? "bg-accent/20" : "bg-muted"
+                            }`}>
+                              <achievement.icon className={`h-5 w-5 ${
+                                achievement.unlocked ? "text-accent" : "text-muted-foreground"
+                              }`} />
+                            </div>
+                            <div>
+                              <p className="font-medium flex items-center gap-2">
+                                {achievement.name}
+                                {achievement.unlocked && (
+                                  <CheckCircle2 className="h-4 w-4 text-accent" />
+                                )}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -235,7 +289,7 @@ const Profile = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-primary" />
-                    Progres Lecții ({stats.lessonsCompleted}/{stats.totalLessons})
+                    Progres Lecții ({completedLessonsCount}/{TOTAL_LESSONS})
                   </CardTitle>
                   <CardDescription>
                     Urmărește progresul tău în lecții și quiz-uri
@@ -243,43 +297,51 @@ const Profile = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="mb-6">
-                    <Progress value={(stats.lessonsCompleted / stats.totalLessons) * 100} className="h-3" />
+                    <Progress value={(completedLessonsCount / TOTAL_LESSONS) * 100} className="h-3" />
                   </div>
-                  <div className="space-y-3">
-                    {lessonsProgress.map((lesson) => (
-                      <div 
-                        key={lesson.id}
-                        className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/20 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            lesson.completed ? "bg-accent/20" : "bg-muted"
-                          }`}>
-                            {lesson.completed ? (
-                              <CheckCircle2 className="h-4 w-4 text-accent" />
-                            ) : (
-                              <span className="text-sm text-muted-foreground">{lesson.id}</span>
-                            )}
+                  {progressLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <Skeleton key={i} className="h-14 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {lessonsProgress.map((lesson) => (
+                        <div 
+                          key={lesson.id}
+                          className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/20 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                              lesson.completed ? "bg-accent/20" : "bg-muted"
+                            }`}>
+                              {lesson.completed ? (
+                                <CheckCircle2 className="h-4 w-4 text-accent" />
+                              ) : (
+                                <span className="text-sm text-muted-foreground">{lesson.id}</span>
+                              )}
+                            </div>
+                            <span className={lesson.completed ? "text-foreground" : "text-muted-foreground"}>
+                              {lesson.title}
+                            </span>
                           </div>
-                          <span className={lesson.completed ? "text-foreground" : "text-muted-foreground"}>
-                            {lesson.title}
-                          </span>
+                          {lesson.completed ? (
+                            <Badge variant="outline" className="text-accent border-accent">
+                              Quiz: {lesson.quizScore}
+                            </Badge>
+                          ) : (
+                            <Button asChild variant="ghost" size="sm">
+                              <Link to={`/lectii/${lesson.slug}`}>
+                                Începe
+                                <ChevronRight className="h-4 w-4 ml-1" />
+                              </Link>
+                            </Button>
+                          )}
                         </div>
-                        {lesson.completed ? (
-                          <Badge variant="outline" className="text-accent border-accent">
-                            Quiz: {lesson.quizScore}
-                          </Badge>
-                        ) : (
-                          <Button asChild variant="ghost" size="sm">
-                            <Link to="/lectii">
-                              Începe
-                              <ChevronRight className="h-4 w-4 ml-1" />
-                            </Link>
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -297,44 +359,65 @@ const Profile = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {recentGames.map((game) => (
-                      <div 
-                        key={game.id}
-                        className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/20 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-foreground">{game.score.toLocaleString()}</p>
-                            <p className="text-xs text-muted-foreground">puncte</p>
+                  {gamesLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Skeleton key={i} className="h-20 w-full" />
+                      ))}
+                    </div>
+                  ) : games.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Gamepad2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground mb-4">Nu ai jucat încă niciun joc</p>
+                      <Button asChild className="neon-glow">
+                        <Link to="/joc">
+                          <Zap className="h-4 w-4 mr-2" />
+                          Joacă Acum
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {games.map((game) => (
+                        <div 
+                          key={game.id}
+                          className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/20 transition-colors"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-foreground">{game.score.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">puncte</p>
+                            </div>
+                            <div className="h-10 w-px bg-border" />
+                            <div>
+                              <Badge variant={game.mode === "ranked" ? "default" : "outline"} className="mb-1 capitalize">
+                                {game.mode}
+                              </Badge>
+                              <p className="text-xs text-muted-foreground">{getRelativeDate(game.played_at)}</p>
+                            </div>
                           </div>
-                          <div className="h-10 w-px bg-border" />
-                          <div>
-                            <Badge variant={game.mode === "Ranked" ? "default" : "outline"} className="mb-1">
-                              {game.mode}
-                            </Badge>
-                            <p className="text-xs text-muted-foreground">{game.date}</p>
+                          <div className="flex items-center gap-6 text-sm">
+                            <div className="text-center">
+                              <p className="font-medium">{formatTime(game.time_seconds)}</p>
+                              <p className="text-xs text-muted-foreground">Timp</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="font-medium">{game.accuracy}%</p>
+                              <p className="text-xs text-muted-foreground">Acuratețe</p>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-6 text-sm">
-                          <div className="text-center">
-                            <p className="font-medium">{game.time}</p>
-                            <p className="text-xs text-muted-foreground">Timp</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="font-medium">{game.accuracy}%</p>
-                            <p className="text-xs text-muted-foreground">Acuratețe</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <Button asChild variant="outline" className="w-full mt-4">
-                    <Link to="/joc">
-                      <Zap className="h-4 w-4 mr-2" />
-                      Joacă din Nou
-                    </Link>
-                  </Button>
+                      ))}
+                    </div>
+                  )}
+                  {games.length > 0 && (
+                    <Button asChild variant="outline" className="w-full mt-4">
+                      <Link to="/joc">
+                        <Zap className="h-4 w-4 mr-2" />
+                        Joacă din Nou
+                      </Link>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
