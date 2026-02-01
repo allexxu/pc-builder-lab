@@ -52,7 +52,7 @@ const MotherboardSVG = ({
 
   return (
     <TooltipProvider>
-      <div className="relative w-full max-w-none aspect-[5/4]">
+      <div className="relative w-[580px] h-[465px]">
         <svg
           viewBox="0 0 600 480"
           className="w-full h-full"
