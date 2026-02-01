@@ -1,13 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGameState, GameMode } from "@/hooks/useGameState";
+import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { GAME_COMPONENTS, ComponentId, ZoneId } from "@/data/gameComponents";
 import MotherboardSVG from "./MotherboardSVG";
-import ComponentCard from "./ComponentCard";
+import DraggableComponent from "./DraggableComponent";
+import GhostComponent from "./GhostComponent";
+import DropZoneOverlay from "./DropZoneOverlay";
 import GameHUD from "./GameHUD";
 import GameEndScreen from "./GameEndScreen";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Info } from "lucide-react";
+import { ArrowLeft, Info, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -18,9 +21,30 @@ interface GameBoardProps {
 
 const GameBoard = ({ mode, onExit }: GameBoardProps) => {
   const [state, actions] = useGameState();
-  const [highlightedZone, setHighlightedZone] = useState<ZoneId | null>(null);
   const [hintComponent, setHintComponent] = useState<ComponentId | null>(null);
   const [showFeedback, setShowFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [floatingScore, setFloatingScore] = useState<{ points: number; x: number; y: number } | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+
+  // Drag and drop system
+  const { dragState, startDrag, getSnapPosition } = useDragAndDrop({
+    onDrop: (componentId, zoneId) => {
+      actions.placeComponent(componentId, zoneId);
+    },
+    onInvalidDrop: (componentId) => {
+      // Trigger error feedback for wrong zone
+      const comp = GAME_COMPONENTS.find(c => c.id === componentId);
+      toast.error("Zonă greșită!", {
+        description: `${comp?.name} nu se potrivește aici`,
+        duration: 2000
+      });
+      setShowFeedback({ type: "error", message: "Zonă greșită!" });
+      setTimeout(() => setShowFeedback(null), 1000);
+    },
+    canPlaceComponent: actions.canPlaceComponent,
+    placedComponents: state.placedComponents,
+    boardRef
+  });
 
   // Start game on mount
   useEffect(() => {
@@ -35,7 +59,7 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
     }
   }, [hintComponent]);
 
-  // Show feedback toast
+  // Show feedback toast when component is placed
   useEffect(() => {
     if (state.lastPlacementResult) {
       const result = state.lastPlacementResult;
@@ -45,34 +69,26 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
           duration: 2000
         });
         setShowFeedback({ type: "success", message: `+${result.points}` });
+        
+        // Show floating score
+        setFloatingScore({ points: result.points, x: 50, y: 50 });
+        setTimeout(() => setFloatingScore(null), 1500);
       } else {
         toast.error(result.message, {
           description: result.points < 0 ? `${result.points} puncte` : undefined,
           duration: 3000
         });
         setShowFeedback({ type: "error", message: result.message });
+        
+        if (result.points < 0) {
+          setFloatingScore({ points: result.points, x: 50, y: 50 });
+          setTimeout(() => setFloatingScore(null), 1500);
+        }
       }
       
       setTimeout(() => setShowFeedback(null), 1500);
     }
   }, [state.lastPlacementResult]);
-
-  const handleZoneClick = (zoneId: ZoneId) => {
-    if (!state.selectedComponent) {
-      toast.info("Selectează mai întâi o componentă din lista din stânga");
-      return;
-    }
-
-    actions.placeComponent(state.selectedComponent, zoneId);
-  };
-
-  const handleComponentSelect = (componentId: ComponentId) => {
-    if (state.selectedComponent === componentId) {
-      actions.selectComponent(null);
-    } else {
-      actions.selectComponent(componentId);
-    }
-  };
 
   const handleHint = () => {
     const hint = actions.useHint();
@@ -92,6 +108,9 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
   };
 
   const availableComponents = actions.getAvailableComponents();
+  const draggedComponentData = dragState.draggedComponent 
+    ? GAME_COMPONENTS.find(c => c.id === dragState.draggedComponent)
+    : null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -119,11 +138,20 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
             Înapoi
           </Button>
           
-          {state.selectedComponent && (
+          {!dragState.isDragging && (
             <Alert className="max-w-md border-primary/50 bg-primary/10">
-              <Info className="h-4 w-4 text-primary" />
+              <GripVertical className="h-4 w-4 text-primary" />
               <AlertDescription className="text-primary text-sm">
-                Click pe zona corectă de pe placa de bază pentru a plasa componenta
+                <strong>Trage</strong> componentele cu mouse-ul și <strong>plasează-le</strong> pe zonele corecte de pe placă
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {dragState.isDragging && draggedComponentData && (
+            <Alert className="max-w-md border-accent/50 bg-accent/10 animate-pulse">
+              <Info className="h-4 w-4 text-accent" />
+              <AlertDescription className="text-accent text-sm">
+                Tragi: <strong>{draggedComponentData.name}</strong> — plasează pe zona corectă!
               </AlertDescription>
             </Alert>
           )}
@@ -131,28 +159,32 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
 
         {/* Game content */}
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
-          {/* Components panel */}
+          {/* Components panel - Draggable */}
           <div className="order-2 lg:order-1">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <span className="w-3 h-3 rounded-full bg-primary animate-pulse" />
               Componente Disponibile
+              <span className="text-xs text-muted-foreground ml-2">
+                (trage pe placă)
+              </span>
             </h3>
             
             <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
               {GAME_COMPONENTS.map(component => {
                 const isPlaced = actions.isComponentPlaced(component.id);
                 const { canPlace, reason } = actions.canPlaceComponent(component.id);
+                const isDragging = dragState.draggedComponent === component.id;
                 
                 return (
-                  <ComponentCard
+                  <DraggableComponent
                     key={component.id}
                     component={component}
-                    isSelected={state.selectedComponent === component.id}
                     isPlaced={isPlaced}
                     canPlace={canPlace}
                     reason={reason}
-                    onSelect={handleComponentSelect}
+                    isDragging={isDragging}
                     showHint={hintComponent === component.id}
+                    onDragStart={startDrag}
                   />
                 );
               })}
@@ -165,34 +197,58 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
             </div>
           </div>
 
-          {/* Motherboard area */}
+          {/* Motherboard area with drop zones */}
           <div className="order-1 lg:order-2 flex flex-col items-center">
             <h3 className="text-lg font-semibold mb-4 text-center">
               Placă de Bază
+              {dragState.isDragging && (
+                <span className="text-accent text-sm ml-2 animate-pulse">
+                  — Plasează componenta aici!
+                </span>
+              )}
             </h3>
             
-            <div className={cn(
-              "relative p-4 rounded-2xl border-2 border-border bg-card/50",
-              "transition-all duration-300",
-              showFeedback?.type === "success" && "border-accent animate-bounce-success",
-              showFeedback?.type === "error" && "border-destructive animate-shake"
-            )}>
+            <div 
+              ref={boardRef}
+              className={cn(
+                "relative p-4 rounded-2xl border-2 border-border bg-card/50",
+                "transition-all duration-300",
+                dragState.isDragging && "border-primary/50 neon-glow",
+                showFeedback?.type === "success" && "border-accent animate-bounce-success",
+                showFeedback?.type === "error" && "border-destructive animate-shake"
+              )}
+            >
+              {/* Drop zone overlay - shows when dragging */}
+              <DropZoneOverlay
+                draggedComponent={dragState.draggedComponent}
+                hoveredZone={dragState.hoveredZone}
+                isValidDrop={dragState.isValidDrop}
+                placedComponents={state.placedComponents}
+              />
+
               <MotherboardSVG
                 placedComponents={state.placedComponents}
-                selectedComponent={state.selectedComponent}
-                highlightedZone={highlightedZone}
-                onZoneClick={handleZoneClick}
-                onZoneHover={setHighlightedZone}
+                selectedComponent={null}
+                highlightedZone={dragState.hoveredZone}
+                onZoneClick={() => {}} // Disabled - using drag now
+                onZoneHover={() => {}} // Disabled - drag handles this
               />
               
               {/* Floating score indicator */}
-              {showFeedback && (
-                <div className={cn(
-                  "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-                  "text-3xl font-bold pointer-events-none animate-fade-in",
-                  showFeedback.type === "success" ? "text-accent" : "text-destructive"
-                )}>
-                  {showFeedback.type === "success" ? showFeedback.message : "✗"}
+              {floatingScore && (
+                <div 
+                  className={cn(
+                    "absolute pointer-events-none animate-float-up",
+                    "text-3xl font-bold",
+                    floatingScore.points > 0 ? "text-accent" : "text-destructive"
+                  )}
+                  style={{
+                    top: "40%",
+                    left: "50%",
+                    transform: "translateX(-50%)"
+                  }}
+                >
+                  {floatingScore.points > 0 ? `+${floatingScore.points}` : floatingScore.points}
                 </div>
               )}
             </div>
@@ -219,6 +275,16 @@ const GameBoard = ({ mode, onExit }: GameBoardProps) => {
           </div>
         </div>
       </div>
+
+      {/* Ghost component that follows cursor */}
+      {dragState.isDragging && draggedComponentData && (
+        <GhostComponent
+          component={draggedComponentData}
+          position={dragState.ghostPosition}
+          isValid={dragState.isValidDrop}
+          isOverZone={!!dragState.hoveredZone}
+        />
+      )}
 
       {/* Pause overlay */}
       {state.phase === "paused" && (

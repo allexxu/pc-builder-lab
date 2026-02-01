@@ -277,6 +277,103 @@
     animation: shake 0.5s ease-out;
   }
 
+  /* Snap-in animation for dropped components */
+  .animate-snap-in {
+    animation: snapIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  @keyframes snapIn {
+    0% {
+      transform: scale(1.2);
+      opacity: 0.8;
+    }
+    50% {
+      transform: scale(0.95);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Floating score animation */
+  .animate-float-up {
+    animation: floatUp 1.5s ease-out forwards;
+  }
+
+  @keyframes floatUp {
+    0% {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-80px);
+    }
+  }
+
+  /* Glow animations for drop zones */
+  .animate-glow-valid {
+    animation: glowValid 0.8s ease-in-out infinite;
+  }
+
+  @keyframes glowValid {
+    0%, 100% {
+      filter: drop-shadow(0 0 8px hsl(var(--accent)));
+    }
+    50% {
+      filter: drop-shadow(0 0 20px hsl(var(--accent)));
+    }
+  }
+
+  .animate-glow-invalid {
+    animation: glowInvalid 0.3s ease-in-out infinite;
+  }
+
+  @keyframes glowInvalid {
+    0%, 100% {
+      filter: drop-shadow(0 0 8px hsl(var(--destructive)));
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-2px);
+    }
+    75% {
+      transform: translateX(2px);
+    }
+  }
+
+  /* Subtle shake for invalid drops */
+  .animate-shake-subtle {
+    animation: shakeSubtle 0.3s ease-in-out;
+  }
+
+  @keyframes shakeSubtle {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-3px);
+    }
+    75% {
+      transform: translateX(3px);
+    }
+  }
+
+  /* Pulse animation for valid ghost */
+  .animate-pulse-valid {
+    animation: pulseValid 0.6s ease-in-out infinite;
+  }
+
+  @keyframes pulseValid {
+    0%, 100% {
+      box-shadow: 0 0 15px hsl(var(--accent) / 0.6);
+    }
+    50% {
+      box-shadow: 0 0 30px hsl(var(--accent) / 0.9);
+    }
+  }
+
   @keyframes shake {
     0%, 100% {
       transform: translateX(0);
