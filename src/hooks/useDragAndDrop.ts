@@ -52,19 +52,28 @@ export function useDragAndDrop({
     const svgRect = svg.getBoundingClientRect();
     const viewBox = svg.viewBox.baseVal;
     
+    // The MotherboardSVG uses a 1.33 scale factor (600x480 viewBox vs 450x360 original coords)
+    const svgScale = 1.33;
+    
     // Scale factors from SVG viewBox to actual pixel dimensions
     const scaleX = svgRect.width / viewBox.width;
     const scaleY = svgRect.height / viewBox.height;
     
+    // Apply the internal SVG scale factor to the zone coordinates
+    const scaledZoneX = zone.x * svgScale;
+    const scaledZoneY = zone.y * svgScale;
+    const scaledZoneWidth = zone.width * svgScale;
+    const scaledZoneHeight = zone.height * svgScale;
+    
     return {
-      left: svgRect.left + zone.x * scaleX,
-      top: svgRect.top + zone.y * scaleY,
-      right: svgRect.left + (zone.x + zone.width) * scaleX,
-      bottom: svgRect.top + (zone.y + zone.height) * scaleY,
-      centerX: svgRect.left + (zone.x + zone.width / 2) * scaleX,
-      centerY: svgRect.top + (zone.y + zone.height / 2) * scaleY,
-      width: zone.width * scaleX,
-      height: zone.height * scaleY
+      left: svgRect.left + scaledZoneX * scaleX,
+      top: svgRect.top + scaledZoneY * scaleY,
+      right: svgRect.left + (scaledZoneX + scaledZoneWidth) * scaleX,
+      bottom: svgRect.top + (scaledZoneY + scaledZoneHeight) * scaleY,
+      centerX: svgRect.left + (scaledZoneX + scaledZoneWidth / 2) * scaleX,
+      centerY: svgRect.top + (scaledZoneY + scaledZoneHeight / 2) * scaleY,
+      width: scaledZoneWidth * scaleX,
+      height: scaledZoneHeight * scaleY
     };
   }, [boardRef]);
 
