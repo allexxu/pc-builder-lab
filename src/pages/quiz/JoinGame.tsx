@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogIn, Loader2 } from "lucide-react";
+import { LogIn, Loader2, User, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import QuizLayout from "@/components/quiz/QuizLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidPin, isValidNickname } from "@/lib/quiz-utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const JoinGame = () => {
   const [pin, setPin] = useState("");
@@ -16,6 +17,15 @@ const JoinGame = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+
+  // Pre-populate nickname for authenticated users
+  useEffect(() => {
+    if (user) {
+      const displayName = user.user_metadata?.display_name || user.email?.split("@")[0] || "";
+      setNickname(displayName);
+    }
+  }, [user]);
 
   const handlePinChange = (value: string) => {
     // Only allow digits, max 6
@@ -76,13 +86,24 @@ const JoinGame = () => {
         return;
       }
 
-      // Add participant
+      // Add participant with user_id if authenticated
+      const participantData: {
+        session_id: string;
+        nickname: string;
+        user_id?: string;
+      } = {
+        session_id: session.id,
+        nickname: nickname.trim(),
+      };
+
+      // Include user_id if authenticated
+      if (user) {
+        participantData.user_id = user.id;
+      }
+
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .insert({
-          session_id: session.id,
-          nickname: nickname.trim(),
-        })
+        .insert(participantData)
         .select("id")
         .single();
 
@@ -105,6 +126,8 @@ const JoinGame = () => {
       setLoading(false);
     }
   };
+
+  const isAuthenticated = !authLoading && !!user;
 
   return (
     <QuizLayout>
@@ -132,21 +155,39 @@ const JoinGame = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="nickname">Nickname</Label>
-                <Input
-                  id="nickname"
-                  type="text"
-                  placeholder="Numele tău în joc"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  maxLength={20}
-                  className="h-12"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {nickname.length}/20 caractere
-                </p>
-              </div>
+              {isAuthenticated ? (
+                <div className="space-y-2">
+                  <Label>Nickname</Label>
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/10 border border-primary/20">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">{nickname}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3 text-primary" />
+                        Autentificat
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="nickname">Nickname</Label>
+                  <Input
+                    id="nickname"
+                    type="text"
+                    placeholder="Numele tău în joc"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    maxLength={20}
+                    className="h-12"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {nickname.length}/20 caractere
+                  </p>
+                </div>
+              )}
 
               <Button
                 type="submit"
