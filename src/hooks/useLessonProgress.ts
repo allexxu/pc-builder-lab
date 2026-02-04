@@ -52,7 +52,7 @@ export function useLessonProgress() {
           lesson_slug: lessonSlug,
           completed: true,
           quiz_score: quizScore ?? null,
-          quiz_total: 5,
+          quiz_total: 3, // Actual number of questions per lesson quiz
           completed_at: new Date().toISOString(),
         }, {
           onConflict: "user_id,lesson_slug"

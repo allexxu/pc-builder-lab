@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   User, 
@@ -12,13 +13,15 @@ import {
   ChevronRight,
   Zap,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Pencil
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLessonProgress } from "@/hooks/useLessonProgress";
 import { useGameHistory } from "@/hooks/useGameHistory";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useUserStats } from "@/hooks/useUserStats";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +29,17 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import MainLayout from "@/components/layout/MainLayout";
 import { useEffect } from "react";
 
@@ -40,6 +54,10 @@ const LESSON_TITLES: Record<string, string> = {
   "sisteme-racire": "Sisteme de Răcire",
 };
 
+const AVATAR_OPTIONS = [
+  "🎮", "🖥️", "💻", "🔧", "⚡", "🚀", "🎯", "🏆", "🌟", "🔥"
+];
+
 const Profile = () => {
   const { user, signOut, loading: authLoading } = useAuth();
   const { progress, loading: progressLoading, getCompletedCount } = useLessonProgress();
@@ -48,6 +66,12 @@ const Profile = () => {
   const { stats, loading: statsLoading, getAverageAccuracy, formatBestTime } = useUserStats();
   const navigate = useNavigate();
 
+  // Edit profile state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState("");
+  const [editAvatar, setEditAvatar] = useState("");
+  const [saving, setSaving] = useState(false);
+
   // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
@@ -55,10 +79,54 @@ const Profile = () => {
     }
   }, [authLoading, user, navigate]);
 
+  // Initialize edit form when user data is available
+  useEffect(() => {
+    if (user) {
+      setEditDisplayName(user.user_metadata?.display_name || user.email?.split("@")[0] || "");
+      setEditAvatar(user.user_metadata?.avatar_emoji || "🎮");
+    }
+  }, [user]);
+
   const handleSignOut = async () => {
     await signOut();
     toast.success("Deconectat cu succes!");
     navigate("/");
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    
+    setSaving(true);
+    try {
+      // Update auth user metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          display_name: editDisplayName,
+          avatar_emoji: editAvatar,
+        },
+      });
+
+      if (authError) throw authError;
+
+      // Update profiles table
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          display_name: editDisplayName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      toast.success("Profil actualizat cu succes!");
+      setEditDialogOpen(false);
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      toast.error("Nu s-a putut actualiza profilul");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Show loading while checking auth
@@ -84,7 +152,7 @@ const Profile = () => {
     username: user.user_metadata?.display_name || user.email?.split("@")[0] || "Utilizator",
     email: user.email || "",
     joinedDate: new Date(user.created_at).toLocaleDateString("ro-RO", { month: "long", year: "numeric" }),
-    avatar: user.user_metadata?.avatar_url || null,
+    avatar: user.user_metadata?.avatar_emoji || "🎮",
   };
 
   const completedLessonsCount = getCompletedCount();
@@ -117,8 +185,8 @@ const Profile = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             {/* Avatar */}
-            <div className="w-24 h-24 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center">
-              <User className="h-12 w-12 text-primary" />
+            <div className="w-24 h-24 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center text-4xl">
+              {userData.avatar}
             </div>
 
             {/* User Info */}
@@ -140,10 +208,71 @@ const Profile = () => {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => toast.info("Setările vor fi disponibile în curând!")}>
-                <Settings className="h-4 w-4 mr-2" />
-                Setări
-              </Button>
+              <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editează Profilul
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Editează Profilul</DialogTitle>
+                    <DialogDescription>
+                      Personalizează-ți numele și avatarul
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-6 py-4">
+                    {/* Display Name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="displayName">Nume afișat</Label>
+                      <Input
+                        id="displayName"
+                        value={editDisplayName}
+                        onChange={(e) => setEditDisplayName(e.target.value)}
+                        placeholder="Numele tău"
+                        maxLength={30}
+                      />
+                    </div>
+
+                    {/* Avatar Selection */}
+                    <div className="space-y-2">
+                      <Label>Alege un avatar</Label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {AVATAR_OPTIONS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setEditAvatar(emoji)}
+                            className={`w-12 h-12 rounded-lg text-2xl flex items-center justify-center transition-all ${
+                              editAvatar === emoji
+                                ? "bg-primary/20 border-2 border-primary scale-110"
+                                : "bg-muted hover:bg-muted/80 border border-border"
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditDialogOpen(false)}
+                      disabled={saving}
+                    >
+                      Anulează
+                    </Button>
+                    <Button onClick={handleSaveProfile} disabled={saving}>
+                      {saving ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : null}
+                      Salvează
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
               <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={handleSignOut}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Ieșire
