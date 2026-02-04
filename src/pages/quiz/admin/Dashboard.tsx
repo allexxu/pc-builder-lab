@@ -47,12 +47,13 @@ const Dashboard = () => {
     // Wait for auth to finish loading
     if (authLoading) return;
 
-    // Redirect if not authenticated or not a teacher
+    // Redirect if not authenticated
     if (!user) {
       navigate("/quiz/admin/login");
       return;
     }
 
+    // Redirect if not a teacher
     if (!isTeacher) {
       toast({
         title: "Acces restricționat",
@@ -67,31 +68,47 @@ const Dashboard = () => {
   }, [authLoading, user, isTeacher, navigate, toast]);
 
   const fetchQuizzes = async () => {
-    const { data, error } = await supabase
-      .from("quizzes")
-      .select(`
-        id,
-        title,
-        description,
-        is_published,
-        created_at,
-        questions(count)
-      `)
-      .order("created_at", { ascending: false });
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from("quizzes")
+        .select(`
+          id,
+          title,
+          description,
+          is_published,
+          created_at,
+          questions(count)
+        `)
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching quizzes:", error);
+      if (error) {
+        console.error("Error fetching quizzes:", error);
+        toast({
+          title: "Eroare",
+          description: "Nu s-au putut încărca quiz-urile.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const quizzesWithCount = data?.map((quiz) => ({
+        ...quiz,
+        question_count: quiz.questions?.[0]?.count || 0,
+      })) || [];
+
+      setQuizzes(quizzesWithCount);
+    } catch (err) {
+      console.error("Exception fetching quizzes:", err);
+      toast({
+        title: "Eroare",
+        description: "A apărut o problemă la încărcarea quiz-urilor.",
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const quizzesWithCount = data?.map((quiz) => ({
-      ...quiz,
-      question_count: quiz.questions?.[0]?.count || 0,
-    })) || [];
-
-    setQuizzes(quizzesWithCount);
-    setLoading(false);
   };
 
   const handleStartGame = async (quizId: string) => {
