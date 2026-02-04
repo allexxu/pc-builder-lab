@@ -9,10 +9,13 @@ import {
   TrendingUp,
   Loader2,
   Gamepad2,
-  GraduationCap
+  GraduationCap,
+  AlertCircle,
+  RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MainLayout from "@/components/layout/MainLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,10 +73,12 @@ const Leaderboard = () => {
     totalQuizzes: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentUserEntry, setCurrentUserEntry] = useState<LeaderboardEntry | null>(null);
   const { user } = useAuth();
 
-  useEffect(() => {
+  const loadData = () => {
+    setError(null);
     if (activeTab === "hardware") {
       fetchHardwareLeaderboard();
       fetchGlobalStats();
@@ -81,6 +86,10 @@ const Leaderboard = () => {
       fetchQuizLeaderboard();
       fetchQuizStats();
     }
+  };
+
+  useEffect(() => {
+    loadData();
   }, [activeTab, user]);
 
   const fetchHardwareLeaderboard = async () => {
@@ -102,6 +111,7 @@ const Leaderboard = () => {
 
       if (error) {
         console.error("Error fetching leaderboard:", error);
+        setError("Nu am putut încărca clasamentul. Încearcă din nou.");
         setLoading(false);
         return;
       }
@@ -176,6 +186,7 @@ const Leaderboard = () => {
       }
     } catch (err) {
       console.error("Error in fetchHardwareLeaderboard:", err);
+      setError("A apărut o eroare la încărcarea datelor. Încearcă din nou.");
     } finally {
       setLoading(false);
     }
@@ -209,6 +220,7 @@ const Leaderboard = () => {
 
       if (error) {
         console.error("Error fetching quiz leaderboard:", error);
+        setError("Nu am putut încărca clasamentul quiz-urilor. Încearcă din nou.");
         setLoading(false);
         return;
       }
@@ -231,6 +243,7 @@ const Leaderboard = () => {
       setQuizLeaderboard(entries);
     } catch (err) {
       console.error("Error in fetchQuizLeaderboard:", err);
+      setError("A apărut o eroare la încărcarea clasamentului quiz-urilor.");
     } finally {
       setLoading(false);
     }
@@ -423,7 +436,16 @@ const Leaderboard = () => {
                     <div className="col-span-1 text-right hidden lg:block">Jocuri</div>
                   </div>
 
-                  {loading ? (
+                  {error ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+                      <p className="text-muted-foreground mb-4">{error}</p>
+                      <Button onClick={loadData} variant="outline" className="gap-2">
+                        <RefreshCw className="h-4 w-4" />
+                        Încearcă din nou
+                      </Button>
+                    </div>
+                  ) : loading ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
@@ -538,7 +560,16 @@ const Leaderboard = () => {
                     <div className="col-span-2 text-right hidden sm:block">Data</div>
                   </div>
 
-                  {loading ? (
+                  {error ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+                      <p className="text-muted-foreground mb-4">{error}</p>
+                      <Button onClick={loadData} variant="outline" className="gap-2">
+                        <RefreshCw className="h-4 w-4" />
+                        Încearcă din nou
+                      </Button>
+                    </div>
+                  ) : loading ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
