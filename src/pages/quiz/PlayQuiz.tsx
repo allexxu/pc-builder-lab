@@ -9,6 +9,7 @@ import ScorePopup from "@/components/quiz/ScorePopup";
 import LeaderboardList from "@/components/quiz/LeaderboardList";
 import { supabase } from "@/integrations/supabase/client";
 import { calculatePoints } from "@/lib/quiz-utils";
+import { useToast } from "@/hooks/use-toast";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 interface Question {
@@ -42,6 +43,7 @@ interface Participant {
 const PlayQuiz = () => {
   const { gamePin } = useParams<{ gamePin: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<GameSession | null>(null);
@@ -61,6 +63,12 @@ const PlayQuiz = () => {
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const hasAnsweredRef = useRef(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    hasAnsweredRef.current = hasAnswered;
+  }, [hasAnswered]);
 
   // Load initial data
   useEffect(() => {
@@ -193,6 +201,7 @@ const PlayQuiz = () => {
             // Clear timer
             if (timerRef.current) {
               clearInterval(timerRef.current);
+              timerRef.current = null;
             }
             
             // Refresh participants for leaderboard
@@ -215,6 +224,7 @@ const PlayQuiz = () => {
               // Reset for new question
               setSelectedAnswer(null);
               setHasAnswered(false);
+              hasAnsweredRef.current = false;
               setShowScorePopup(false);
               setPointsEarned(0);
               setIsCorrect(false);
@@ -235,56 +245,71 @@ const PlayQuiz = () => {
     };
   }, [gamePin, navigate, questions, participantId]);
 
-  // Countdown timer - synced with question time limit
+  // Improved countdown timer with better sync
   useEffect(() => {
-    if (!currentQuestion || gameStatus !== "question" || timeRemaining <= 0) {
+    if (!currentQuestion || gameStatus !== "question") {
       return;
     }
 
     // Clear any existing timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
+      timerRef.current = null;
     }
 
-    timerRef.current = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          // Time's up - submit empty answer if not already answered
-          if (!hasAnswered) {
-            handleTimeUp();
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    const startTime = questionStartTime || Date.now();
+    const endTime = startTime + (currentQuestion.time_limit * 1000);
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((endTime - now) / 1000));
+      setTimeRemaining(remaining);
+
+      if (remaining <= 0 && !hasAnsweredRef.current) {
+        handleTimeUp();
+      }
+    };
+
+    updateTimer(); // Initial update
+    timerRef.current = setInterval(updateTimer, 100); // More frequent updates for accuracy
 
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
-  }, [currentQuestion?.id, gameStatus]);
+  }, [currentQuestion?.id, gameStatus, questionStartTime]);
 
   const handleTimeUp = useCallback(async () => {
-    if (!participantId || !currentQuestion || hasAnswered) return;
+    if (!participantId || !currentQuestion || hasAnsweredRef.current) return;
 
+    // Mark as answered immediately to prevent double submission
     setHasAnswered(true);
+    hasAnsweredRef.current = true;
     setPointsEarned(0);
     setIsCorrect(false);
     setShowScorePopup(true);
 
-    // Submit empty response
-    await supabase.from("responses").insert({
-      participant_id: participantId,
-      question_id: currentQuestion.id,
-      answer_id: null,
-      response_time: currentQuestion.time_limit * 1000,
-      points_earned: 0,
-    });
+    try {
+      // Submit empty response
+      const { error } = await supabase.from("responses").insert({
+        participant_id: participantId,
+        question_id: currentQuestion.id,
+        answer_id: null,
+        response_time: currentQuestion.time_limit * 1000,
+        points_earned: 0,
+      });
+
+      if (error) {
+        console.error("[PlayQuiz] Error submitting timeout response:", error);
+      }
+    } catch (err) {
+      console.error("[PlayQuiz] Exception submitting timeout response:", err);
+    }
 
     setTimeout(() => setShowScorePopup(false), 2000);
-  }, [participantId, currentQuestion, hasAnswered]);
+  }, [participantId, currentQuestion]);
 
   const handleSelectAnswer = async (answerId: string) => {
     if (!participantId || !currentQuestion || hasAnswered) return;
@@ -298,8 +323,10 @@ const PlayQuiz = () => {
       currentQuestion.time_limit * 1000
     );
 
+    // Update UI immediately
     setSelectedAnswer(answerId);
     setHasAnswered(true);
+    hasAnsweredRef.current = true;
     setIsCorrect(correct);
     setPointsEarned(points);
     setShowScorePopup(true);
@@ -308,21 +335,48 @@ const PlayQuiz = () => {
       setTotalScore((prev) => prev + points);
     }
 
-    // Submit response
-    await supabase.from("responses").insert({
-      participant_id: participantId,
-      question_id: currentQuestion.id,
-      answer_id: answerId,
-      response_time: responseTime,
-      points_earned: points,
-    });
+    try {
+      // 1. Submit response
+      const { error: responseError } = await supabase.from("responses").insert({
+        participant_id: participantId,
+        question_id: currentQuestion.id,
+        answer_id: answerId,
+        response_time: responseTime,
+        points_earned: points,
+      });
 
-    // Update participant score
-    if (correct) {
-      await supabase
-        .from("participants")
-        .update({ total_score: totalScore + points })
-        .eq("id", participantId);
+      if (responseError) {
+        console.error("[PlayQuiz] Error submitting response:", responseError);
+        toast({
+          title: "Eroare la trimitere",
+          description: "Răspunsul nu a putut fi salvat.",
+          variant: "destructive",
+        });
+      }
+
+      // 2. Update participant score using atomic increment function
+      if (correct && points > 0) {
+        const { error: scoreError } = await supabase.rpc('increment_participant_score', {
+          p_participant_id: participantId,
+          p_points: points
+        });
+        
+        if (scoreError) {
+          console.error("[PlayQuiz] Error updating score:", scoreError);
+          // Fallback to direct update if RPC fails
+          await supabase
+            .from("participants")
+            .update({ total_score: totalScore + points })
+            .eq("id", participantId);
+        }
+      }
+    } catch (err) {
+      console.error("[PlayQuiz] Exception in answer submission:", err);
+      toast({
+        title: "Eroare",
+        description: "A apărut o problemă la trimiterea răspunsului.",
+        variant: "destructive",
+      });
     }
 
     setTimeout(() => setShowScorePopup(false), 2000);
