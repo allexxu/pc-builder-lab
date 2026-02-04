@@ -1,179 +1,146 @@
 
-# Plan: Remediere Vulnerabilități și Îmbunătățiri Rămase
+# Plan: Sincronizare Utilizatori Autentificați cu Quiz și Istoric în Profil
 
 ## Rezumat
+Voi implementa sincronizarea automată a utilizatorilor autentificați cu sistemul de quiz, astfel încât nickname-ul să fie pre-populat automat, și voi adăuga un tab în profil pentru afișarea istoricului jocurilor de quiz.
 
-După o analiză completă a proiectului, am identificat **2 probleme critice** și **5 probleme medii** care necesită remediere.
+## Modificări Necesare
 
----
+### 1. Actualizare Schema Baze de Date
 
-## Probleme Identificate
+**Tabelul `participants`** - Adaugă coloana `user_id`:
+- Adaugă `user_id uuid REFERENCES auth.users(id)` (opțional, pentru a permite și jucători neautentificați)
+- Adaugă index pe `user_id` pentru interogări rapide
 
-### CRITICE (Blocker - trebuie remediate imediat)
-
-#### 1. Autentificare localStorage în QuizEditor și GameControl
-**Fișiere afectate:** 
-- `src/pages/quiz/admin/QuizEditor.tsx` (linia 63)
-- `src/pages/quiz/admin/GameControl.tsx` (linia 57)
-
-**Problema:** Aceste două fișiere încă folosesc verificarea nesigură:
-```javascript
-const isAuthenticated = localStorage.getItem("teacher_authenticated") === "true";
+```text
+participants
+├── id (uuid, PK)
+├── session_id (uuid, FK)
+├── user_id (uuid, FK → auth.users) ← NOU
+├── nickname (text)
+├── total_score (integer)
+├── joined_at (timestamp)
+└── is_active (boolean)
 ```
-Deși `AdminLogin.tsx` și `Dashboard.tsx` au fost refactorizate să folosească Supabase Auth, QuizEditor și GameControl au rămas cu verificarea veche prin localStorage.
 
-**Soluție:** Înlocuire cu verificare prin hook-ul `useAuth()`:
-- Import `useAuth` din context
-- Verificare `isTeacher` în loc de localStorage
-- Redirect la login dacă nu e autentificat sau nu e profesor
+### 2. Modificare JoinGame.tsx
 
-#### 2. Placeholder UUID în QuizEditor
-**Fișier:** `src/pages/quiz/admin/QuizEditor.tsx` (linia 249)
+**Pre-populare automată a nickname-ului:**
+- Import `useAuth` pentru a verifica dacă utilizatorul este autentificat
+- Dacă este autentificat, setează automat nickname-ul din `user.user_metadata.display_name`
+- Afișează un mesaj de bun venit și ascunde input-ul de nickname (sau îl face read-only)
+- La submit, include `user_id` în inserția participantului
 
-**Problema:** La crearea unui quiz nou:
-```javascript
-created_by: "00000000-0000-0000-0000-000000000000", // Teacher placeholder
+```text
+Flow pentru utilizator autentificat:
+┌─────────────────────────────────────┐
+│  Cod de acces: [______]             │
+│                                     │
+│  ✓ Autentificat ca: NumeTău 🎮      │
+│    (nickname-ul tău din profil)     │
+│                                     │
+│  [Intră în Joc]                     │
+└─────────────────────────────────────┘
+
+Flow pentru utilizator neautentificat:
+┌─────────────────────────────────────┐
+│  Cod de acces: [______]             │
+│                                     │
+│  Nickname: [__________]             │
+│  0/20 caractere                     │
+│                                     │
+│  [Intră în Joc]                     │
+└─────────────────────────────────────┘
 ```
-Se folosește un UUID fals în loc de ID-ul real al utilizatorului autentificat.
 
-**Soluție:** Folosire `user.id` din contextul de autentificare.
+### 3. Hook Nou: useQuizHistory.ts
 
----
+Creează un hook pentru a prelua istoricul jocurilor de quiz:
 
-### MEDII (Securitate - recomandat pentru producție)
+```typescript
+interface QuizGameRecord {
+  id: string;
+  session_id: string;
+  quiz_title: string;
+  nickname: string;
+  total_score: number;
+  rank: number;
+  total_participants: number;
+  questions_answered: number;
+  correct_answers: number;
+  played_at: string;
+}
+```
 
-#### 3. RLS Policy prea permisivă pe `responses`
-**Problema:** Politica `Allow viewing responses` cu `USING (true)` permite oricui să vadă toate răspunsurile participanților.
+**Logica de interogare:**
+- Join `participants` cu `game_sessions` și `quizzes` pentru titlul quiz-ului
+- Calculează rank-ul pe baza scorului în sesiune
+- Calculează răspunsuri corecte din `responses`
 
-**Soluție:** Ștergere politică permisivă sau restricționare la creatorii sesiunii.
+### 4. Actualizare Profile.tsx
 
-#### 4. Date publice expuse (Leaderboard)
-**Tabele:** `user_stats`, `profiles`, `game_history`
+**Adaugă tab nou "Istoric Quiz":**
+- Adaugă un tab nou `quiz-history` în componenta Tabs
+- Afișează lista de jocuri de quiz cu:
+  - Titlul quiz-ului
+  - Scorul obținut
+  - Rank-ul în acea sesiune (ex: #2 din 15)
+  - Răspunsuri corecte
+  - Data jocului
+- Link pentru a juca din nou
 
-**Problema:** Scanarea de securitate a identificat că datele utilizatorilor sunt accesibile public pentru funcționalitatea de clasament.
+### 5. Actualizare RLS Policies
 
-**Notă:** Aceasta este o decizie de design. Pentru un clasament public, datele trebuie să fie vizibile. Totuși, putem:
-- Limita câmpurile expuse (doar numele și scorul, nu email-ul)
-- Verifica că email-urile nu sunt expuse în `profiles`
+Adaugă politici pentru a permite utilizatorilor să-și vadă propriile participări:
 
-**Status:** Verificat - `profiles` nu conține email, doar `display_name` și `avatar_url`. OK pentru uz educațional.
-
-#### 5. Leaked Password Protection Disabled
-**Problema:** Protecția împotriva parolelor compromise este dezactivată în Supabase Auth.
-
-**Soluție:** Activare manuală din Supabase Dashboard (nu se poate automatiza prin cod).
-
----
-
-## Plan de Implementare
-
-### Faza 1: Fix Autentificare QuizEditor + GameControl
-
-**Modificări în `src/pages/quiz/admin/QuizEditor.tsx`:**
-1. Import `useAuth` hook
-2. Înlocuire verificare localStorage cu verificare `user` și `isTeacher`
-3. Folosire `user.id` la crearea quiz-ului
-
-**Modificări în `src/pages/quiz/admin/GameControl.tsx`:**
-1. Import `useAuth` hook
-2. Înlocuire verificare localStorage cu verificare `user` și `isTeacher`
-3. Adăugare loading state pentru auth
-
-### Faza 2: Fix RLS Policy `responses`
-
-**Migrație SQL:**
 ```sql
-DROP POLICY IF EXISTS "Allow viewing responses" ON responses;
+CREATE POLICY "Users can view own quiz participation"
+ON public.participants FOR SELECT
+TO authenticated
+USING (user_id = auth.uid());
 ```
-
-### Faza 3: Avertisment pentru Leaked Password (documentare)
-
-Adăugare notă în plan că acest lucru trebuie activat manual.
 
 ---
 
-## Fișiere de Modificat
+## Detalii Tehnice
+
+### Migrare SQL
+
+```sql
+-- 1. Adaugă coloana user_id
+ALTER TABLE public.participants 
+ADD COLUMN user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- 2. Index pentru performanță
+CREATE INDEX idx_participants_user_id ON public.participants(user_id);
+
+-- 3. RLS pentru istoricul propriu
+CREATE POLICY "Users can view own quiz participation"
+ON public.participants FOR SELECT
+TO authenticated
+USING (user_id = auth.uid());
+```
+
+### Fișiere Modificate
 
 | Fișier | Modificare |
 |--------|------------|
-| `src/pages/quiz/admin/QuizEditor.tsx` | Refactor autentificare |
-| `src/pages/quiz/admin/GameControl.tsx` | Refactor autentificare |
-| `supabase/migrations/xxx.sql` | Ștergere RLS policy permisivă |
+| `supabase/migrations/xxx.sql` | Adaugă `user_id` și politici RLS |
+| `src/pages/quiz/JoinGame.tsx` | Pre-populare nickname, include `user_id` |
+| `src/hooks/useQuizHistory.ts` | Hook nou pentru istoricul quiz-urilor |
+| `src/pages/Profile.tsx` | Tab nou "Istoric Quiz" |
+| `src/integrations/supabase/types.ts` | Se regenerează automat |
+
+### Compatibilitate
+
+- Jucătorii neautentificați pot juca în continuare (user_id rămâne NULL)
+- Jucătorii autentificați primesc nickname-ul automat, dar îl pot schimba dacă doresc
+- Istoricul apare doar pentru jocurile jucate după implementare (sau pentru toate dacă user_id a fost setat)
 
 ---
 
-## Cod Propus
+## Estimare
 
-### QuizEditor.tsx - Secțiunea de modificat
-
-```typescript
-// La începutul fișierului, adaugă:
-import { useAuth } from "@/contexts/AuthContext";
-
-// În componentă:
-const { user, isTeacher, loading: authLoading } = useAuth();
-
-// Înlocuiește useEffect existent (liniile 62-72) cu:
-useEffect(() => {
-  if (authLoading) return;
-  
-  if (!user || !isTeacher) {
-    navigate("/quiz/admin/login");
-    return;
-  }
-
-  if (!isNew) {
-    fetchQuiz();
-  }
-}, [authLoading, user, isTeacher, isNew, quizId, navigate]);
-
-// La handleSave, înlocuiește created_by (linia 249):
-created_by: user.id,
-```
-
-### GameControl.tsx - Secțiunea de modificat
-
-```typescript
-// La începutul fișierului, adaugă:
-import { useAuth } from "@/contexts/AuthContext";
-
-// În componentă:
-const { user, isTeacher, loading: authLoading } = useAuth();
-
-// Înlocuiește verificarea localStorage (liniile 56-61) cu:
-useEffect(() => {
-  if (authLoading) return;
-  
-  if (!user || !isTeacher) {
-    navigate("/quiz/admin/login");
-    return;
-  }
-  // ... restul fetch-ului
-}, [authLoading, user, isTeacher, gamePin, navigate, toast]);
-```
-
-### Migrație SQL
-
-```sql
--- Ștergere politică prea permisivă pe responses
-DROP POLICY IF EXISTS "Allow viewing responses" ON responses;
-```
-
----
-
-## Rezultat Final
-
-După implementare:
-- Toate paginile admin folosesc **Supabase Auth real**
-- Nu mai există verificări prin **localStorage** nesigure  
-- Quiz-urile noi sunt asociate cu **utilizatorul real**
-- Politicile RLS sunt **restrictive** corespunzător
-- Proiectul este pregătit pentru **producție** (cu excepția Leaked Password care necesită activare manuală)
-
----
-
-## Pași Manuali Rămași
-
-Pentru a completa securizarea:
-1. Accesează Supabase Dashboard → Authentication → Security
-2. Activează "Leaked password protection"
+- **Schema DB**: 1 migrare SQL
+- **Componente React**: 2 fișiere modificate + 1 hook nou
+- **Timp estimat**: ~15 minute
