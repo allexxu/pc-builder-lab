@@ -4,21 +4,21 @@ import {
   Gamepad2, 
   BookOpen, 
   Trophy, 
-  ChevronRight, 
+  ArrowRight, 
   Zap, 
   Monitor,
   HardDrive,
   Fan,
   Cable,
-  CircuitBoard
+  CircuitBoard,
+  Play
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import MainLayout from "@/components/layout/MainLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useLessonProgress } from "@/hooks/useLessonProgress";
+import { motion } from "framer-motion";
 
 const TOTAL_LESSONS = 6;
 
@@ -29,7 +29,6 @@ const Index = () => {
 
   const isLoading = statsLoading || progressLoading;
 
-  // Use real data for logged-in users, defaults for guests
   const userProgress = {
     lessonsCompleted: user ? getCompletedCount() : 0,
     totalLessons: TOTAL_LESSONS,
@@ -38,281 +37,437 @@ const Index = () => {
     accuracy: user ? getAverageAccuracy() : 0,
   };
 
-  const progressPercentage = (userProgress.lessonsCompleted / userProgress.totalLessons) * 100;
+  const pillars = [
+    {
+      number: "0.1",
+      label: "Misiune",
+      title: "Învață prin practică",
+    },
+    {
+      number: "0.2",
+      label: "Viziune",
+      title: "Înțelege tehnologia de azi",
+    },
+    {
+      number: "0.3",
+      label: "Ambiție",
+      title: "Construiește viitorul",
+    },
+  ];
 
-  const features = [
+  const products = [
     {
       icon: BookOpen,
-      title: "6 Lecții Complete",
-      description: "Placa de bază, CPU, PSU, socket-uri, răcire și modul de funcționare",
+      name: "Lecții Interactive",
+      description: "6 module complete despre hardware",
+      link: "/lectii",
+      color: "primary",
     },
     {
       icon: Gamepad2,
-      title: "Joc Interactiv",
-      description: "Asamblează PC-ul prin drag & drop cu feedback în timp real",
+      name: "Joc de Asamblare",
+      description: "Drag & drop pentru a construi un PC",
+      link: "/joc",
+      color: "accent",
     },
     {
       icon: Trophy,
-      title: "Competiție",
-      description: "Clasamente, achievements și badge-uri pentru motivație",
+      name: "Clasament Live",
+      description: "Competiție și achievements",
+      link: "/clasament",
+      color: "primary",
+    },
+    {
+      icon: Zap,
+      name: "TechQuiz",
+      description: "Quiz-uri live cu colegii",
+      link: "/quiz",
+      color: "accent",
     },
   ];
 
   const components = [
-    { icon: Cpu, label: "CPU" },
-    { icon: CircuitBoard, label: "Placă de Bază" },
-    { icon: HardDrive, label: "SSD" },
-    { icon: Monitor, label: "GPU" },
-    { icon: Fan, label: "Cooler" },
-    { icon: Cable, label: "Cabluri" },
+    { icon: Cpu, label: "CPU", desc: "Procesor" },
+    { icon: CircuitBoard, label: "Placă de Bază", desc: "Motherboard" },
+    { icon: HardDrive, label: "SSD", desc: "Stocare" },
+    { icon: Monitor, label: "GPU", desc: "Grafică" },
+    { icon: Fan, label: "Cooler", desc: "Răcire" },
+    { icon: Cable, label: "PSU", desc: "Alimentare" },
+  ];
+
+  const stats_display = [
+    { label: "Lecții", value: "6", suffix: "module" },
+    { label: "Componente", value: "8", suffix: "de învățat" },
+    { label: "Elevi", value: "100+", suffix: "activi" },
   ];
 
   return (
     <MainLayout>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 circuit-pattern opacity-30" />
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background" />
+      {/* Hero Section - Full Screen */}
+      <section className="min-h-[calc(100vh-4rem)] flex flex-col justify-center relative overflow-hidden bg-background">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
         
-        {/* Floating Components Animation */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {components.map((comp, i) => (
-            <div
-              key={comp.label}
-              className="absolute text-primary/20 animate-float"
-              style={{
-                left: `${15 + i * 15}%`,
-                top: `${20 + (i % 3) * 25}%`,
-                animationDelay: `${i * 0.5}s`,
-              }}
+        <div className="container mx-auto px-4 md:px-8 lg:px-16 relative z-10">
+          {/* Top announcement */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            <Link 
+              to="/lectii" 
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
             >
-              <comp.icon className="h-12 w-12 md:h-16 md:w-16" />
-            </div>
-          ))}
-        </div>
+              <span>Descoperă viitorul în fiecare lecție</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </motion.div>
 
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="flex flex-col items-center text-center py-20 md:py-32">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-sm mb-8 animate-fade-in">
-              <Zap className="h-4 w-4" />
-              <span>Platformă educațională pentru elevi</span>
-            </div>
+          {/* Main title */}
+          <div className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="flex items-center gap-4 text-primary"
+            >
+              <Cpu className="h-8 w-8 md:h-10 md:w-10" />
+              <span className="text-lg md:text-xl font-light tracking-wider uppercase">
+                PC Builder Academy
+              </span>
+            </motion.div>
 
-            {/* Title */}
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-              <span className="gradient-text">Învață să asamblezi</span>
-              <br />
-              <span className="text-foreground">un PC de la zero</span>
-            </h1>
-
-            {/* Description */}
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-10 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-              Descoperă componentele calculatorului într-un mod interactiv și distractiv. 
-              Lecții structurate, joc de asamblare, și competiție cu colegii!
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-              <Button asChild size="lg" className="text-lg px-8 neon-glow group">
-                <Link to="/lectii">
-                  <BookOpen className="h-5 w-5 mr-2" />
-                  Începe Lecția
-                  <ChevronRight className="h-5 w-5 ml-1 transition-transform group-hover:translate-x-1" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline" className="text-lg px-8 border-accent text-accent hover:bg-accent hover:text-accent-foreground group">
-                <Link to="/joc">
-                  <Gamepad2 className="h-5 w-5 mr-2" />
-                  Joacă Acum
-                  <ChevronRight className="h-5 w-5 ml-1 transition-transform group-hover:translate-x-1" />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Progress Section */}
-      <section className="py-12 bg-card/30">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Progress Card */}
-            <Card className="tech-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-primary" />
-                  {user ? "Progresul Tău" : "Progres Lecții"}
-                </CardTitle>
-                <CardDescription>
-                  {user ? "Continuă de unde ai rămas" : "Autentifică-te pentru a-ți salva progresul"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Lecții completate</span>
-                    <span className="font-medium text-foreground">
-                      {isLoading ? "..." : `${userProgress.lessonsCompleted} / ${userProgress.totalLessons}`}
-                    </span>
-                  </div>
-                  <Progress value={isLoading ? 0 : progressPercentage} className="h-3" />
-                  <p className="text-sm text-muted-foreground">
-                    {user 
-                      ? `Mai ai ${userProgress.totalLessons - userProgress.lessonsCompleted} lecții de parcurs`
-                      : "Conectează-te pentru a urmări progresul"
-                    }
-                  </p>
-                  <Button asChild variant="outline" className="w-full mt-4">
-                    <Link to="/lectii">
-                      {user ? "Continuă Învățarea" : "Începe Învățarea"}
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Best Score Card */}
-            <Card className="tech-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-accent" />
-                  {user ? "Cel Mai Bun Scor" : "Statistici Joc"}
-                </CardTitle>
-                <CardDescription>
-                  {user ? "Statisticile tale în joc" : "Joacă pentru a-ți vedea scorul"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="text-center py-4">
-                    <span className="text-5xl font-bold gradient-text">
-                      {isLoading ? "..." : userProgress.bestScore.toLocaleString()}
-                    </span>
-                    <p className="text-sm text-muted-foreground mt-2">puncte</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
-                    <div className="text-center">
-                      <p className="text-2xl font-semibold text-foreground">
-                        {isLoading ? "..." : userProgress.gamesPlayed}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Jocuri</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-2xl font-semibold text-foreground">
-                        {isLoading ? "..." : `${userProgress.accuracy}%`}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Acuratețe</p>
-                    </div>
-                  </div>
-                  <Button asChild className="w-full mt-4 neon-glow-green bg-accent hover:bg-accent/90">
-                    <Link to="/joc">
-                      <Gamepad2 className="h-4 w-4 mr-2" />
-                      {user ? "Joacă din Nou" : "Începe Jocul"}
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              De ce <span className="gradient-text">PC Builder Academy</span>?
-            </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              O platformă completă pentru a înțelege cum funcționează un calculator
-            </p>
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-5xl md:text-7xl lg:text-8xl font-light tracking-tight leading-none"
+            >
+              <span className="block text-foreground">Învață.</span>
+              <span className="block text-foreground">Construiește.</span>
+              <span className="block gradient-text">Excelează.</span>
+            </motion.h1>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {features.map((feature, index) => (
-              <Card 
-                key={feature.title} 
-                className="tech-card animate-fade-in"
-                style={{ animationDelay: `${index * 0.1}s` }}
+          {/* Categories / Products Pills */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mt-12 flex flex-wrap items-center gap-3"
+          >
+            <span className="text-sm text-muted-foreground mr-2">Explorează</span>
+            {products.slice(0, 3).map((product) => (
+              <Link
+                key={product.name}
+                to={product.link}
+                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full border transition-all duration-300 group
+                  ${product.color === 'primary' 
+                    ? 'border-primary/30 hover:bg-primary hover:text-primary-foreground' 
+                    : 'border-accent/30 hover:bg-accent hover:text-accent-foreground'
+                  }`}
               >
-                <CardHeader>
-                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                    <feature.icon className="h-6 w-6 text-primary" />
-                  </div>
-                  <CardTitle className="text-xl">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
+                <product.icon className="h-4 w-4" />
+                <span className="text-sm font-medium">{product.name}</span>
+              </Link>
+            ))}
+          </motion.div>
+        </div>
+
+        {/* Hero image placeholder - floating components */}
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1/3 h-2/3 hidden lg:block pointer-events-none">
+          <div className="relative w-full h-full">
+            {components.slice(0, 4).map((comp, i) => (
+              <motion.div
+                key={comp.label}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 0.15, scale: 1 }}
+                transition={{ duration: 0.8, delay: 0.5 + i * 0.1 }}
+                className="absolute text-primary"
+                style={{
+                  left: `${20 + (i % 2) * 40}%`,
+                  top: `${15 + Math.floor(i / 2) * 35}%`,
+                }}
+              >
+                <comp.icon className="h-20 w-20 md:h-28 md:w-28" strokeWidth={1} />
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Components Preview Section */}
-      <section className="py-20 bg-card/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ce vei <span className="gradient-text">învăța</span>?
+      {/* Company Details Section - Dark */}
+      <section className="py-24 md:py-32 bg-card relative">
+        <div className="container mx-auto px-4 md:px-8 lg:px-16">
+          {/* Section title */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mb-16"
+          >
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-light leading-tight">
+              <span className="text-muted-foreground">La PC Builder Academy</span>
+              <br />
+              <span className="text-foreground">Formăm viitorii experți IT</span>
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Toate componentele esențiale ale unui calculator personal
-            </p>
+          </motion.div>
+
+          {/* Three pillars */}
+          <div className="grid md:grid-cols-3 gap-8 md:gap-12">
+            {pillars.map((pillar, index) => (
+              <motion.div
+                key={pillar.number}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                className="group"
+              >
+                <div className="flex items-center gap-4 mb-4 text-sm text-muted-foreground">
+                  <span className="text-primary font-mono">{pillar.number}</span>
+                  <span>{pillar.label}</span>
+                </div>
+                <h3 className="text-xl md:text-2xl font-medium text-foreground group-hover:text-primary transition-colors">
+                  {pillar.title}
+                </h3>
+                <div className="mt-4 h-px bg-gradient-to-r from-border via-border to-transparent" />
+              </motion.div>
+            ))}
           </div>
+
+          {/* Stats row */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-20 pt-12 border-t border-border"
+          >
+            <div className="grid grid-cols-3 gap-8">
+              {stats_display.map((stat) => (
+                <div key={stat.label} className="text-center md:text-left">
+                  <div className="text-sm text-muted-foreground mb-1">{stat.label}</div>
+                  <div className="text-2xl md:text-3xl font-light text-foreground">
+                    {stat.value} <span className="text-sm text-muted-foreground">{stat.suffix}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Products Section - Light feel */}
+      <section className="py-24 md:py-32 bg-background relative overflow-hidden">
+        {/* Background pattern */}
+        <div className="absolute inset-0 circuit-pattern opacity-5" />
+        
+        <div className="container mx-auto px-4 md:px-8 lg:px-16 relative z-10">
+          {/* Section header */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="flex items-center gap-4 mb-6"
+          >
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Cpu className="h-5 w-5" />
+            </div>
+            <span className="text-sm text-muted-foreground uppercase tracking-wider">
+              Ce Oferim
+            </span>
+          </motion.div>
+
+          <motion.h2
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-4xl md:text-5xl lg:text-6xl font-light mb-16"
+          >
+            Abordare Interactivă
+          </motion.h2>
+
+          {/* Products grid */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {products.map((product, index) => (
+              <motion.div
+                key={product.name}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+              >
+                <Link
+                  to={product.link}
+                  className="group block p-8 md:p-10 rounded-2xl border border-border bg-card hover:border-primary/50 transition-all duration-300"
+                >
+                  <div className="flex items-start justify-between mb-8">
+                    <div className={`p-3 rounded-xl ${
+                      product.color === 'primary' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent'
+                    }`}>
+                      <product.icon className="h-6 w-6" />
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-medium text-foreground mb-2 group-hover:text-primary transition-colors">
+                    {product.name}
+                  </h3>
+                  <p className="text-muted-foreground">{product.description}</p>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Components Showcase */}
+      <section className="py-24 md:py-32 bg-card">
+        <div className="container mx-auto px-4 md:px-8 lg:px-16">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-light mb-4">
+              Ce vei <span className="gradient-text">învăța</span>
+            </h2>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              Componentele esențiale ale unui calculator personal
+            </p>
+          </motion.div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {components.map((comp, index) => (
-              <div 
+              <motion.div
                 key={comp.label}
-                className="flex flex-col items-center p-6 rounded-xl border border-border bg-card hover:border-primary/50 hover:neon-glow transition-all cursor-pointer group animate-fade-in"
-                style={{ animationDelay: `${index * 0.05}s` }}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: index * 0.05 }}
+                className="group p-6 rounded-xl border border-border bg-background hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 text-center"
               >
-                <comp.icon className="h-10 w-10 text-primary mb-3 transition-transform group-hover:scale-110" />
-                <span className="text-sm font-medium text-foreground">{comp.label}</span>
-              </div>
+                <comp.icon className="h-10 w-10 mx-auto mb-3 text-primary group-hover:scale-110 transition-transform" />
+                <span className="block text-sm font-medium text-foreground">{comp.label}</span>
+                <span className="block text-xs text-muted-foreground mt-1">{comp.desc}</span>
+              </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <Card className="tech-card overflow-hidden">
-            <div className="relative p-8 md:p-12 text-center">
-              {/* Background decoration */}
-              <div className="absolute inset-0 circuit-pattern opacity-10" />
-              
-              <div className="relative z-10">
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                  Gata să <span className="gradient-text">începi</span>?
-                </h2>
-                <p className="text-muted-foreground max-w-xl mx-auto mb-8">
-                  Alege modul care ți se potrivește: învățare pas cu pas sau direct la acțiune!
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button asChild size="lg" className="neon-glow">
-                    <Link to="/lectii">
-                      <BookOpen className="h-5 w-5 mr-2" />
-                      Vreau să Învăț
-                    </Link>
-                  </Button>
-                  <Button asChild size="lg" variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
-                    <Link to="/joc">
-                      <Gamepad2 className="h-5 w-5 mr-2" />
-                      Vreau să Joc
-                    </Link>
-                  </Button>
+      {/* User Progress / CTA Section */}
+      <section className="py-24 md:py-32 bg-background">
+        <div className="container mx-auto px-4 md:px-8 lg:px-16">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left - Progress info */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-2 rounded-lg bg-accent/10 text-accent">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <span className="text-sm text-muted-foreground uppercase tracking-wider">
+                  {user ? "Progresul Tău" : "Statistici"}
+                </span>
+              </div>
+
+              <h2 className="text-3xl md:text-4xl font-light mb-8">
+                {user 
+                  ? "Continuă unde ai rămas" 
+                  : "Începe călătoria în lumea hardware"
+                }
+              </h2>
+
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    <span className="text-foreground">Lecții completate</span>
+                  </div>
+                  <span className="text-xl font-medium text-foreground">
+                    {isLoading ? "..." : `${userProgress.lessonsCompleted}/${userProgress.totalLessons}`}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-3">
+                    <Trophy className="h-5 w-5 text-accent" />
+                    <span className="text-foreground">Cel mai bun scor</span>
+                  </div>
+                  <span className="text-xl font-medium gradient-text">
+                    {isLoading ? "..." : userProgress.bestScore.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-3">
+                    <Gamepad2 className="h-5 w-5 text-primary" />
+                    <span className="text-foreground">Jocuri finalizate</span>
+                  </div>
+                  <span className="text-xl font-medium text-foreground">
+                    {isLoading ? "..." : userProgress.gamesPlayed}
+                  </span>
                 </div>
               </div>
-            </div>
-          </Card>
+            </motion.div>
+
+            {/* Right - CTA */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="relative"
+            >
+              <div className="p-8 md:p-12 rounded-2xl border border-border bg-card relative overflow-hidden">
+                {/* Background decoration */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+                
+                <div className="relative z-10">
+                  <h3 className="text-2xl md:text-3xl font-light mb-4">
+                    Gata să <span className="gradient-text">începi</span>?
+                  </h3>
+                  <p className="text-muted-foreground mb-8">
+                    Alege modul care ți se potrivește: învățare pas cu pas sau direct la acțiune!
+                  </p>
+
+                  <div className="space-y-3">
+                    <Button asChild size="lg" className="w-full justify-between group">
+                      <Link to="/lectii">
+                        <span className="flex items-center gap-2">
+                          <BookOpen className="h-5 w-5" />
+                          Vreau să Învăț
+                        </span>
+                        <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </Button>
+
+                    <Button asChild size="lg" variant="outline" className="w-full justify-between border-accent text-accent hover:bg-accent hover:text-accent-foreground group">
+                      <Link to="/joc">
+                        <span className="flex items-center gap-2">
+                          <Play className="h-5 w-5" />
+                          Vreau să Joc
+                        </span>
+                        <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
     </MainLayout>
