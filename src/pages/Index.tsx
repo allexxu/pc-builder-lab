@@ -22,6 +22,8 @@ import { motion } from "framer-motion";
 
 const TOTAL_LESSONS = 6;
 
+import creatorsImage from "@/assets/creators.png";
+
 const Index = () => {
   const { user } = useAuth();
   const { stats, loading: statsLoading, getAverageAccuracy } = useUserStats();
@@ -135,7 +137,7 @@ const Index = () => {
             >
               <Cpu className="h-8 w-8 md:h-10 md:w-10" />
               <span className="text-lg md:text-xl font-light tracking-wider uppercase">
-                PC Builder Academy
+                Alexandru & Nichita
               </span>
             </motion.div>
 
@@ -210,7 +212,7 @@ const Index = () => {
             className="mb-16"
           >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-light leading-tight">
-              <span className="text-muted-foreground">La PC Builder Academy</span>
+              <span className="text-muted-foreground">Alexandru & Nichita</span>
               <br />
               <span className="text-foreground">Formăm viitorii experți IT</span>
             </h2>
@@ -363,8 +365,63 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Creators Section */}
+      <section className="py-24 md:py-32 bg-background relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+        <div className="container mx-auto px-4 md:px-8 lg:px-16 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-light mb-4">
+              Făcut cu <span className="gradient-text">drag</span>
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              de către Alexandru Negruța și Ciobu Nichita
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="flex justify-center"
+          >
+            <div className="relative max-w-md w-full">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl blur-xl" />
+              <img
+                src={creatorsImage}
+                alt="Alexandru Negruța și Ciobu Nichita - Creatorii platformei"
+                className="relative rounded-2xl border border-border shadow-2xl w-full object-cover"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mt-12 grid md:grid-cols-2 gap-6 max-w-2xl mx-auto"
+          >
+            <div className="text-center p-6 rounded-xl border border-border bg-card">
+              <h3 className="text-xl font-medium text-foreground mb-2">Alexandru Negruța</h3>
+              <p className="text-muted-foreground text-sm">Co-fondator & Developer</p>
+            </div>
+            <div className="text-center p-6 rounded-xl border border-border bg-card">
+              <h3 className="text-xl font-medium text-foreground mb-2">Ciobu Nichita</h3>
+              <p className="text-muted-foreground text-sm">Co-fondator & Developer</p>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* User Progress / CTA Section */}
-      <section className="py-24 md:py-32 bg-background">
+      <section className="py-24 md:py-32 bg-card">
         <div className="container mx-auto px-4 md:px-8 lg:px-16">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left - Progress info */}
