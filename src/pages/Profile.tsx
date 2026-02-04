@@ -14,13 +14,15 @@ import {
   Zap,
   CheckCircle2,
   Loader2,
-  Pencil
+  Pencil,
+  MessageSquareQuote
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLessonProgress } from "@/hooks/useLessonProgress";
 import { useGameHistory } from "@/hooks/useGameHistory";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useUserStats } from "@/hooks/useUserStats";
+import { useQuizHistory } from "@/hooks/useQuizHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +66,7 @@ const Profile = () => {
   const { games, loading: gamesLoading, formatTime, getRelativeDate } = useGameHistory();
   const { achievements, loading: achievementsLoading, getUnlockedCount, getTotalCount } = useAchievements();
   const { stats, loading: statsLoading, getAverageAccuracy, formatBestTime } = useUserStats();
+  const { history: quizHistory, loading: quizHistoryLoading, getRelativeDate: getQuizRelativeDate } = useQuizHistory();
   const navigate = useNavigate();
 
   // Edit profile state
@@ -145,7 +148,7 @@ const Profile = () => {
     return null;
   }
 
-  const isLoading = progressLoading || gamesLoading || achievementsLoading || statsLoading;
+  const isLoading = progressLoading || gamesLoading || achievementsLoading || statsLoading || quizHistoryLoading;
 
   // User data from auth
   const userData = {
@@ -354,6 +357,10 @@ const Profile = () => {
                 <Gamepad2 className="h-4 w-4 mr-2" />
                 Istoric Jocuri
               </TabsTrigger>
+              <TabsTrigger value="quiz-history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <MessageSquareQuote className="h-4 w-4 mr-2" />
+                Istoric Quiz
+              </TabsTrigger>
             </TabsList>
 
             {/* Achievements Tab */}
@@ -544,6 +551,90 @@ const Profile = () => {
                       <Link to="/joc">
                         <Zap className="h-4 w-4 mr-2" />
                         Joacă din Nou
+                      </Link>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Quiz History Tab */}
+            <TabsContent value="quiz-history">
+              <Card className="tech-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquareQuote className="h-5 w-5 text-accent" />
+                    Istoric Quiz Live
+                  </CardTitle>
+                  <CardDescription>
+                    Jocurile tale de quiz live și performanțele obținute
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {quizHistoryLoading ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Skeleton key={i} className="h-24 w-full" />
+                      ))}
+                    </div>
+                  ) : quizHistory.length === 0 ? (
+                    <div className="text-center py-8">
+                      <MessageSquareQuote className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground mb-4">Nu ai participat încă la niciun quiz live</p>
+                      <Button asChild className="neon-glow">
+                        <Link to="/quiz">
+                          <Zap className="h-4 w-4 mr-2" />
+                          Intră într-un Quiz
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {quizHistory.map((quiz) => (
+                        <div 
+                          key={quiz.id}
+                          className="p-4 rounded-lg border border-border hover:bg-muted/20 transition-colors"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="font-medium text-foreground">{quiz.quiz_title}</h4>
+                              <p className="text-xs text-muted-foreground">
+                                {getQuizRelativeDate(quiz.played_at)} • ca {quiz.nickname}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-primary border-primary">
+                              #{quiz.rank} din {quiz.total_participants}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 text-center">
+                            <div className="p-2 rounded-lg bg-muted/30">
+                              <p className="text-lg font-bold text-foreground">{quiz.total_score.toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">Puncte</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-muted/30">
+                              <p className="text-lg font-bold text-foreground">
+                                {quiz.correct_answers}/{quiz.total_questions}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Corecte</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-muted/30">
+                              <p className="text-lg font-bold text-foreground">
+                                {quiz.total_questions > 0 
+                                  ? Math.round((quiz.correct_answers / quiz.total_questions) * 100) 
+                                  : 0}%
+                              </p>
+                              <p className="text-xs text-muted-foreground">Acuratețe</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {quizHistory.length > 0 && (
+                    <Button asChild variant="outline" className="w-full mt-4">
+                      <Link to="/quiz">
+                        <Zap className="h-4 w-4 mr-2" />
+                        Intră într-un Quiz
                       </Link>
                     </Button>
                   )}
