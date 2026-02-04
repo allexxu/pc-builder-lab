@@ -56,7 +56,7 @@ const QuizHome = () => {
                   Creează quiz-uri și gestionează sesiuni de joc live.
                 </p>
                 <Button asChild size="lg" variant="outline" className="w-full mt-4">
-                  <Link to="/quiz/admin/login">
+                  <Link to="/quiz/admin">
                     <Shield className="w-5 h-5 mr-2" />
                     Accesează Dashboard
                   </Link>

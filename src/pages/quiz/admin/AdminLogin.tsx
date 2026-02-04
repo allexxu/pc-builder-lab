@@ -26,9 +26,7 @@ const AdminLogin = () => {
 
   // Redirect if already authenticated as teacher
   useEffect(() => {
-    if (loading) return;
-    
-    if (user && isTeacher) {
+    if (!loading && user && isTeacher) {
       navigate("/quiz/admin", { replace: true });
     }
   }, [user, isTeacher, loading, navigate]);
@@ -55,31 +53,19 @@ const AdminLogin = () => {
         description: "Bine ai revenit!",
       });
 
-      navigate("/quiz/admin", { replace: true });
+      // Navigation will be handled by useEffect when isTeacher updates
     } catch (err) {
       toast({
         title: "Eroare",
         description: "Nu s-a putut realiza autentificarea",
         variant: "destructive",
       });
-    } finally {
       setLoginLoading(false);
     }
   };
 
-  // Show loading while checking auth state
-  if (loading) {
-    return (
-      <QuizLayout>
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary" />
-        </div>
-      </QuizLayout>
-    );
-  }
-
-  // If already authenticated as teacher, show loading (redirect will happen)
-  if (user && isTeacher) {
+  // Show loading while checking auth state OR if already authenticated as teacher
+  if (loading || (user && isTeacher)) {
     return (
       <QuizLayout>
         <div className="flex-1 flex items-center justify-center">
