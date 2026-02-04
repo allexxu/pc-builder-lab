@@ -9,6 +9,7 @@ import LeaderboardList from "@/components/quiz/LeaderboardList";
 import CountdownTimer from "@/components/quiz/CountdownTimer";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 interface GameSession {
@@ -39,6 +40,7 @@ const GameControl = () => {
   const { gamePin } = useParams<{ gamePin: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isTeacher, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -54,8 +56,9 @@ const GameControl = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("teacher_authenticated") === "true";
-    if (!isAuthenticated) {
+    if (authLoading) return;
+    
+    if (!user || !isTeacher) {
       navigate("/quiz/admin/login");
       return;
     }
@@ -114,7 +117,7 @@ const GameControl = () => {
     };
 
     fetchData();
-  }, [gamePin, navigate, toast]);
+  }, [authLoading, user, isTeacher, gamePin, navigate, toast]);
 
   // Subscribe to realtime updates
   useEffect(() => {

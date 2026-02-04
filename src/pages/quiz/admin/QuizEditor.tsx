@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import QuizLayout from "@/components/quiz/QuizLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Answer {
   id?: string;
@@ -51,6 +52,7 @@ const QuizEditor = () => {
   const isNew = quizId === "new";
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isTeacher, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -60,8 +62,9 @@ const QuizEditor = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("teacher_authenticated") === "true";
-    if (!isAuthenticated) {
+    if (authLoading) return;
+    
+    if (!user || !isTeacher) {
       navigate("/quiz/admin/login");
       return;
     }
@@ -69,7 +72,7 @@ const QuizEditor = () => {
     if (!isNew) {
       fetchQuiz();
     }
-  }, [isNew, quizId, navigate]);
+  }, [authLoading, user, isTeacher, isNew, quizId, navigate]);
 
   const fetchQuiz = async () => {
     const { data: quiz, error } = await supabase
@@ -246,7 +249,7 @@ const QuizEditor = () => {
             title,
             description: description || null,
             is_published: isPublished,
-            created_by: "00000000-0000-0000-0000-000000000000", // Teacher placeholder
+            created_by: user!.id,
           })
           .select("id")
           .single();
