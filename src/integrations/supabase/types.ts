@@ -428,6 +428,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_participant_score: {
+        Args: { p_participant_id: string; p_points: number }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "teacher" | "user"
