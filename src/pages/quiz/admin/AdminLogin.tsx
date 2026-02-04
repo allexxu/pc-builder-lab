@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { LogIn, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,18 +18,26 @@ import { useAuth } from "@/contexts/AuthContext";
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signIn, refreshRoles } = useAuth();
+  const { user, isTeacher, loading, signIn } = useAuth();
+
+  // Redirect if already authenticated as teacher
+  useEffect(() => {
+    if (loading) return;
+    
+    if (user && isTeacher) {
+      navigate("/quiz/admin", { replace: true });
+    }
+  }, [user, isTeacher, loading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setLoginLoading(true);
 
     try {
-      // Login cu Supabase Auth
       const { error } = await signIn(email, password);
 
       if (error) {
@@ -38,19 +46,16 @@ const AdminLogin = () => {
           description: error.message || "Email sau parolă incorectă",
           variant: "destructive",
         });
-        setLoading(false);
+        setLoginLoading(false);
         return;
       }
-
-      // Refresh roles pentru a verifica dacă e profesor
-      await refreshRoles();
 
       toast({
         title: "Autentificare reușită",
         description: "Bine ai revenit!",
       });
 
-      navigate("/quiz/admin");
+      navigate("/quiz/admin", { replace: true });
     } catch (err) {
       toast({
         title: "Eroare",
@@ -58,9 +63,31 @@ const AdminLogin = () => {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setLoginLoading(false);
     }
   };
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <QuizLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        </div>
+      </QuizLayout>
+    );
+  }
+
+  // If already authenticated as teacher, show loading (redirect will happen)
+  if (user && isTeacher) {
+    return (
+      <QuizLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        </div>
+      </QuizLayout>
+    );
+  }
 
   return (
     <QuizLayout>
@@ -102,9 +129,9 @@ const AdminLogin = () => {
                 type="submit"
                 size="lg"
                 className="w-full"
-                disabled={loading}
+                disabled={loginLoading}
               >
-                {loading ? (
+                {loginLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin mr-2" />
                 ) : (
                   <LogIn className="w-5 h-5 mr-2" />
