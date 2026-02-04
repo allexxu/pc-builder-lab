@@ -401,9 +401,6 @@ const LessonDetail = () => {
     setIsSaving(true);
     const finalScore = answers.filter((a, i) => a === lesson.quiz[i].correct).length;
     
-    // Check if lesson was already completed before this attempt
-    const wasAlreadyCompleted = existingProgress?.completed ?? false;
-    
     const { error } = await markLessonComplete(slug, finalScore);
     
     if (error) {
@@ -411,13 +408,11 @@ const LessonDetail = () => {
     } else {
       toast.success("Progresul a fost salvat!");
       
-      // Only check achievements if this is a newly completed lesson
-      if (!wasAlreadyCompleted) {
-        const newCompletedCount = getCompletedCount() + 1;
-        const unlocked = await checkLessonAchievements(newCompletedCount);
-        if (unlocked) {
-          toast.success("🏆 Ai deblocat achievement-ul 'Primul Pas'!");
-        }
+      // Check for achievements
+      const newCompletedCount = getCompletedCount() + 1;
+      const unlocked = await checkLessonAchievements(newCompletedCount);
+      if (unlocked) {
+        toast.success("🏆 Ai deblocat achievement-ul 'Primul Pas'!");
       }
     }
     

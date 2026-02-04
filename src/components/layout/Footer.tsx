@@ -1,4 +1,4 @@
-import { Cpu, Heart } from "lucide-react";
+import { Cpu, Github, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Footer = () => {
@@ -57,6 +57,17 @@ const Footer = () => {
                   Profilul Meu
                 </Link>
               </li>
+              <li>
+                <a 
+                  href="https://github.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
+                >
+                  <Github className="h-3 w-3" />
+                  GitHub
+                </a>
+              </li>
             </ul>
           </div>
         </div>
@@ -64,7 +75,7 @@ const Footer = () => {
         {/* Bottom */}
         <div className="mt-8 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} PC Builder Academy. Toate drepturile rezervate.
+            © 2025 PC Builder Academy. Toate drepturile rezervate.
           </p>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
             Făcut cu <Heart className="h-3 w-3 text-destructive" /> pentru elevi
