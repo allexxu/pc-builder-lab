@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import QuizLayout from "@/components/quiz/QuizLayout";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
@@ -22,33 +22,28 @@ const AdminLogin = () => {
 
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { signIn, refreshRoles } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke("teacher-login", {
-        body: { email, password },
-      });
+      // Login cu Supabase Auth
+      const { error } = await signIn(email, password);
 
       if (error) {
-        throw new Error("Eroare de conexiune");
-      }
-
-      if (!data.valid) {
         toast({
           title: "Eroare la autentificare",
-          description: "Email sau parolă incorectă",
+          description: error.message || "Email sau parolă incorectă",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      // Store teacher session in localStorage
-      localStorage.setItem("teacher_authenticated", "true");
-      localStorage.setItem("teacher_email", email);
+      // Refresh roles pentru a verifica dacă e profesor
+      await refreshRoles();
 
       toast({
         title: "Autentificare reușită",

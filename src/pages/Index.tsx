@@ -16,15 +16,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import MainLayout from "@/components/layout/MainLayout";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserStats } from "@/hooks/useUserStats";
+import { useLessonProgress } from "@/hooks/useLessonProgress";
+
+const TOTAL_LESSONS = 6;
 
 const Index = () => {
-  // Mock data - will be replaced with real data from backend
+  const { user } = useAuth();
+  const { stats, loading: statsLoading, getAverageAccuracy } = useUserStats();
+  const { getCompletedCount, loading: progressLoading } = useLessonProgress();
+
+  const isLoading = statsLoading || progressLoading;
+
+  // Use real data for logged-in users, defaults for guests
   const userProgress = {
-    lessonsCompleted: 2,
-    totalLessons: 6,
-    bestScore: 8750,
-    gamesPlayed: 15,
-    accuracy: 87,
+    lessonsCompleted: user ? getCompletedCount() : 0,
+    totalLessons: TOTAL_LESSONS,
+    bestScore: user ? stats.best_score : 0,
+    gamesPlayed: user ? stats.total_games : 0,
+    accuracy: user ? getAverageAccuracy() : 0,
   };
 
   const progressPercentage = (userProgress.lessonsCompleted / userProgress.totalLessons) * 100;
@@ -132,10 +143,10 @@ const Index = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpen className="h-5 w-5 text-primary" />
-                  Progresul Tău
+                  {user ? "Progresul Tău" : "Progres Lecții"}
                 </CardTitle>
                 <CardDescription>
-                  Continuă de unde ai rămas
+                  {user ? "Continuă de unde ai rămas" : "Autentifică-te pentru a-ți salva progresul"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -143,16 +154,19 @@ const Index = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Lecții completate</span>
                     <span className="font-medium text-foreground">
-                      {userProgress.lessonsCompleted} / {userProgress.totalLessons}
+                      {isLoading ? "..." : `${userProgress.lessonsCompleted} / ${userProgress.totalLessons}`}
                     </span>
                   </div>
-                  <Progress value={progressPercentage} className="h-3" />
+                  <Progress value={isLoading ? 0 : progressPercentage} className="h-3" />
                   <p className="text-sm text-muted-foreground">
-                    Mai ai {userProgress.totalLessons - userProgress.lessonsCompleted} lecții de parcurs
+                    {user 
+                      ? `Mai ai ${userProgress.totalLessons - userProgress.lessonsCompleted} lecții de parcurs`
+                      : "Conectează-te pentru a urmări progresul"
+                    }
                   </p>
                   <Button asChild variant="outline" className="w-full mt-4">
                     <Link to="/lectii">
-                      Continuă Învățarea
+                      {user ? "Continuă Învățarea" : "Începe Învățarea"}
                       <ChevronRight className="h-4 w-4 ml-1" />
                     </Link>
                   </Button>
@@ -165,34 +179,38 @@ const Index = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-accent" />
-                  Cel Mai Bun Scor
+                  {user ? "Cel Mai Bun Scor" : "Statistici Joc"}
                 </CardTitle>
                 <CardDescription>
-                  Statisticile tale în joc
+                  {user ? "Statisticile tale în joc" : "Joacă pentru a-ți vedea scorul"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="text-center py-4">
                     <span className="text-5xl font-bold gradient-text">
-                      {userProgress.bestScore.toLocaleString()}
+                      {isLoading ? "..." : userProgress.bestScore.toLocaleString()}
                     </span>
                     <p className="text-sm text-muted-foreground mt-2">puncte</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
                     <div className="text-center">
-                      <p className="text-2xl font-semibold text-foreground">{userProgress.gamesPlayed}</p>
+                      <p className="text-2xl font-semibold text-foreground">
+                        {isLoading ? "..." : userProgress.gamesPlayed}
+                      </p>
                       <p className="text-xs text-muted-foreground">Jocuri</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-semibold text-foreground">{userProgress.accuracy}%</p>
+                      <p className="text-2xl font-semibold text-foreground">
+                        {isLoading ? "..." : `${userProgress.accuracy}%`}
+                      </p>
                       <p className="text-xs text-muted-foreground">Acuratețe</p>
                     </div>
                   </div>
                   <Button asChild className="w-full mt-4 neon-glow-green bg-accent hover:bg-accent/90">
                     <Link to="/joc">
                       <Gamepad2 className="h-4 w-4 mr-2" />
-                      Joacă din Nou
+                      {user ? "Joacă din Nou" : "Începe Jocul"}
                     </Link>
                   </Button>
                 </div>

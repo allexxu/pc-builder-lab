@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import QuizLayout from "@/components/quiz/QuizLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { generateGamePin } from "@/lib/quiz-utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Quiz {
   id: string;
@@ -37,19 +38,33 @@ interface Quiz {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isTeacher, loading: authLoading, signOut } = useAuth();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [startingQuiz, setStartingQuiz] = useState<string | null>(null);
 
   useEffect(() => {
-    const isAuthenticated = localStorage.getItem("teacher_authenticated") === "true";
-    if (!isAuthenticated) {
+    // Wait for auth to finish loading
+    if (authLoading) return;
+
+    // Redirect if not authenticated or not a teacher
+    if (!user) {
       navigate("/quiz/admin/login");
       return;
     }
 
+    if (!isTeacher) {
+      toast({
+        title: "Acces restricționat",
+        description: "Nu ai permisiunea de a accesa panoul de profesor.",
+        variant: "destructive",
+      });
+      navigate("/quiz");
+      return;
+    }
+
     fetchQuizzes();
-  }, [navigate]);
+  }, [authLoading, user, isTeacher, navigate, toast]);
 
   const fetchQuizzes = async () => {
     const { data, error } = await supabase
@@ -80,6 +95,8 @@ const Dashboard = () => {
   };
 
   const handleStartGame = async (quizId: string) => {
+    if (!user) return;
+    
     setStartingQuiz(quizId);
 
     try {
@@ -101,13 +118,13 @@ const Dashboard = () => {
         attempts++;
       }
 
-      // Create game session
+      // Create game session with real user ID
       const { data: session, error } = await supabase
         .from("game_sessions")
         .insert({
           quiz_id: quizId,
           game_pin: pin,
-          created_by: "00000000-0000-0000-0000-000000000000", // Teacher ID placeholder
+          created_by: user.id,
           status: "waiting",
         })
         .select("game_pin")
@@ -152,13 +169,12 @@ const Dashboard = () => {
     }
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem("teacher_authenticated");
-    localStorage.removeItem("teacher_email");
+  const handleSignOut = async () => {
+    await signOut();
     navigate("/quiz");
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <QuizLayout>
         <div className="flex-1 flex items-center justify-center">

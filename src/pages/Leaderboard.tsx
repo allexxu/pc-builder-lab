@@ -1,17 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Trophy, 
   Medal, 
   Crown,
-  ChevronDown,
   User,
   Timer,
   Target,
   TrendingUp,
-  Calendar
+  Calendar,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -21,12 +20,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import MainLayout from "@/components/layout/MainLayout";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Period = "all" | "weekly" | "daily";
 type GameMode = "all" | "challenge" | "ranked";
 
 interface LeaderboardEntry {
   rank: number;
+  user_id: string;
   username: string;
   score: number;
   time: string;
@@ -35,24 +37,171 @@ interface LeaderboardEntry {
   isCurrentUser?: boolean;
 }
 
+interface GlobalStats {
+  totalPlayers: number;
+  maxScore: number;
+  totalGames: number;
+  avgAccuracy: number;
+}
+
 const Leaderboard = () => {
   const [period, setPeriod] = useState<Period>("all");
   const [gameMode, setGameMode] = useState<GameMode>("all");
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>([]);
+  const [globalStats, setGlobalStats] = useState<GlobalStats>({
+    totalPlayers: 0,
+    maxScore: 0,
+    totalGames: 0,
+    avgAccuracy: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [currentUserEntry, setCurrentUserEntry] = useState<LeaderboardEntry | null>(null);
+  const { user } = useAuth();
 
-  // Mock leaderboard data
-  const leaderboardData: LeaderboardEntry[] = [
-    { rank: 1, username: "TechMaster99", score: 15850, time: "2:34", accuracy: 98, gamesPlayed: 47 },
-    { rank: 2, username: "PCBuilder_Pro", score: 14720, time: "2:45", accuracy: 95, gamesPlayed: 52 },
-    { rank: 3, username: "HardwareHero", score: 14200, time: "2:52", accuracy: 94, gamesPlayed: 38 },
-    { rank: 4, username: "CircuitQueen", score: 13890, time: "3:01", accuracy: 92, gamesPlayed: 41 },
-    { rank: 5, username: "ByteRunner", score: 13500, time: "3:05", accuracy: 91, gamesPlayed: 35 },
-    { rank: 6, username: "ChipChamp", score: 12980, time: "3:12", accuracy: 89, gamesPlayed: 44 },
-    { rank: 7, username: "MotherboardMaven", score: 12650, time: "3:18", accuracy: 88, gamesPlayed: 39 },
-    { rank: 8, username: "CPUNinja", score: 12400, time: "3:22", accuracy: 87, gamesPlayed: 31 },
-    { rank: 9, username: "RAMRaider", score: 12100, time: "3:28", accuracy: 86, gamesPlayed: 28 },
-    { rank: 10, username: "GPUGuru", score: 11800, time: "3:35", accuracy: 85, gamesPlayed: 33 },
-    { rank: 15, username: "Tu", score: 8750, time: "4:12", accuracy: 87, gamesPlayed: 15, isCurrentUser: true },
-  ];
+  useEffect(() => {
+    fetchLeaderboard();
+    fetchGlobalStats();
+  }, [period, gameMode, user]);
+
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+    try {
+      // Query user_stats joined with profiles for leaderboard
+      const { data, error } = await supabase
+        .from("user_stats")
+        .select(`
+          user_id,
+          best_score,
+          best_time_seconds,
+          total_games,
+          total_accuracy,
+          profiles!inner(display_name)
+        `)
+        .gt("best_score", 0)
+        .order("best_score", { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error("Error fetching leaderboard:", error);
+        setLoading(false);
+        return;
+      }
+
+      // Transform data for display
+      const entries: LeaderboardEntry[] = (data || []).map((item, index) => {
+        const avgAccuracy = item.total_games > 0 
+          ? Math.round(item.total_accuracy / item.total_games) 
+          : 0;
+        
+        const time = item.best_time_seconds 
+          ? `${Math.floor(item.best_time_seconds / 60)}:${(item.best_time_seconds % 60).toString().padStart(2, "0")}`
+          : "--:--";
+
+        return {
+          rank: index + 1,
+          user_id: item.user_id,
+          username: (item.profiles as any)?.display_name || "Anonim",
+          score: item.best_score,
+          time,
+          accuracy: avgAccuracy,
+          gamesPlayed: item.total_games,
+          isCurrentUser: user?.id === item.user_id,
+        };
+      });
+
+      setLeaderboardData(entries);
+
+      // Find current user's entry
+      const userEntry = entries.find(e => e.isCurrentUser);
+      
+      // If user is not in top 20, fetch their position
+      if (user && !userEntry) {
+        const { data: userStats } = await supabase
+          .from("user_stats")
+          .select(`
+            user_id,
+            best_score,
+            best_time_seconds,
+            total_games,
+            total_accuracy
+          `)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (userStats && userStats.best_score > 0) {
+          // Count how many users have higher score
+          const { count } = await supabase
+            .from("user_stats")
+            .select("*", { count: "exact", head: true })
+            .gt("best_score", userStats.best_score);
+
+          const avgAccuracy = userStats.total_games > 0 
+            ? Math.round(userStats.total_accuracy / userStats.total_games) 
+            : 0;
+          
+          const time = userStats.best_time_seconds 
+            ? `${Math.floor(userStats.best_time_seconds / 60)}:${(userStats.best_time_seconds % 60).toString().padStart(2, "0")}`
+            : "--:--";
+
+          setCurrentUserEntry({
+            rank: (count || 0) + 1,
+            user_id: userStats.user_id,
+            username: user.user_metadata?.display_name || user.email?.split("@")[0] || "Tu",
+            score: userStats.best_score,
+            time,
+            accuracy: avgAccuracy,
+            gamesPlayed: userStats.total_games,
+            isCurrentUser: true,
+          });
+        } else {
+          setCurrentUserEntry(null);
+        }
+      } else {
+        setCurrentUserEntry(userEntry || null);
+      }
+    } catch (err) {
+      console.error("Error in fetchLeaderboard:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGlobalStats = async () => {
+    try {
+      // Get total players with scores
+      const { count: totalPlayers } = await supabase
+        .from("user_stats")
+        .select("*", { count: "exact", head: true })
+        .gt("best_score", 0);
+
+      // Get max score
+      const { data: maxScoreData } = await supabase
+        .from("user_stats")
+        .select("best_score")
+        .order("best_score", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Get total games and average accuracy
+      const { data: statsData } = await supabase
+        .from("user_stats")
+        .select("total_games, total_accuracy")
+        .gt("total_games", 0);
+
+      const totalGames = statsData?.reduce((sum, s) => sum + s.total_games, 0) || 0;
+      const totalAccuracy = statsData?.reduce((sum, s) => sum + s.total_accuracy, 0) || 0;
+      const avgAccuracy = totalGames > 0 ? Math.round(totalAccuracy / totalGames) : 0;
+
+      setGlobalStats({
+        totalPlayers: totalPlayers || 0,
+        maxScore: maxScoreData?.best_score || 0,
+        totalGames,
+        avgAccuracy,
+      });
+    } catch (err) {
+      console.error("Error fetching global stats:", err);
+    }
+  };
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -80,8 +229,6 @@ const Leaderboard = () => {
         return "";
     }
   };
-
-  const currentUserEntry = leaderboardData.find(e => e.isCurrentUser);
 
   return (
     <MainLayout>
@@ -191,45 +338,57 @@ const Leaderboard = () => {
                 <div className="col-span-1 text-right hidden lg:block">Jocuri</div>
               </div>
 
-              {/* Entries */}
-              <div className="divide-y divide-border">
-                {leaderboardData.map((entry) => (
-                  <div 
-                    key={entry.rank}
-                    className={`grid grid-cols-12 gap-4 px-6 py-4 items-center transition-colors hover:bg-muted/20 ${getRankStyle(entry.rank, entry.isCurrentUser)}`}
-                  >
-                    <div className="col-span-1 flex items-center">
-                      {getRankIcon(entry.rank)}
-                    </div>
-                    <div className="col-span-4 flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                        <User className="h-4 w-4 text-primary" />
+              {/* Loading State */}
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : leaderboardData.length === 0 ? (
+                <div className="text-center py-12">
+                  <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">Niciun jucător în clasament încă</p>
+                  <p className="text-sm text-muted-foreground">Fii primul care joacă!</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {leaderboardData.map((entry) => (
+                    <div 
+                      key={entry.user_id}
+                      className={`grid grid-cols-12 gap-4 px-6 py-4 items-center transition-colors hover:bg-muted/20 ${getRankStyle(entry.rank, entry.isCurrentUser)}`}
+                    >
+                      <div className="col-span-1 flex items-center">
+                        {getRankIcon(entry.rank)}
                       </div>
-                      <span className={`font-medium ${entry.isCurrentUser ? "text-primary" : ""}`}>
-                        {entry.username}
-                      </span>
-                      {entry.isCurrentUser && (
-                        <Badge variant="outline" className="text-primary border-primary text-xs">
-                          Tu
-                        </Badge>
-                      )}
+                      <div className="col-span-4 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <User className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className={`font-medium ${entry.isCurrentUser ? "text-primary" : ""}`}>
+                          {entry.username}
+                        </span>
+                        {entry.isCurrentUser && (
+                          <Badge variant="outline" className="text-primary border-primary text-xs">
+                            Tu
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="col-span-2 text-right font-mono font-semibold">
+                        {entry.score.toLocaleString()}
+                      </div>
+                      <div className="col-span-2 text-right hidden md:block text-muted-foreground">
+                        <Timer className="h-3 w-3 inline mr-1" />
+                        {entry.time}
+                      </div>
+                      <div className="col-span-2 text-right hidden md:block text-muted-foreground">
+                        {entry.accuracy}%
+                      </div>
+                      <div className="col-span-1 text-right hidden lg:block text-muted-foreground">
+                        {entry.gamesPlayed}
+                      </div>
                     </div>
-                    <div className="col-span-2 text-right font-mono font-semibold">
-                      {entry.score.toLocaleString()}
-                    </div>
-                    <div className="col-span-2 text-right hidden md:block text-muted-foreground">
-                      <Timer className="h-3 w-3 inline mr-1" />
-                      {entry.time}
-                    </div>
-                    <div className="col-span-2 text-right hidden md:block text-muted-foreground">
-                      {entry.accuracy}%
-                    </div>
-                    <div className="col-span-1 text-right hidden lg:block text-muted-foreground">
-                      {entry.gamesPlayed}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -241,28 +400,36 @@ const Leaderboard = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="tech-card text-center">
               <CardContent className="pt-6">
-                <div className="text-3xl font-bold text-primary mb-1">2,847</div>
+                <div className="text-3xl font-bold text-primary mb-1">
+                  {globalStats.totalPlayers.toLocaleString()}
+                </div>
                 <p className="text-sm text-muted-foreground">Jucători Activi</p>
               </CardContent>
             </Card>
 
             <Card className="tech-card text-center">
               <CardContent className="pt-6">
-                <div className="text-3xl font-bold text-accent mb-1">15,850</div>
+                <div className="text-3xl font-bold text-accent mb-1">
+                  {globalStats.maxScore.toLocaleString()}
+                </div>
                 <p className="text-sm text-muted-foreground">Record Maxim</p>
               </CardContent>
             </Card>
 
             <Card className="tech-card text-center">
               <CardContent className="pt-6">
-                <div className="text-3xl font-bold text-primary mb-1">12,456</div>
+                <div className="text-3xl font-bold text-primary mb-1">
+                  {globalStats.totalGames.toLocaleString()}
+                </div>
                 <p className="text-sm text-muted-foreground">Jocuri Totale</p>
               </CardContent>
             </Card>
 
             <Card className="tech-card text-center">
               <CardContent className="pt-6">
-                <div className="text-3xl font-bold text-accent mb-1">87%</div>
+                <div className="text-3xl font-bold text-accent mb-1">
+                  {globalStats.avgAccuracy}%
+                </div>
                 <p className="text-sm text-muted-foreground">Acuratețe Medie</p>
               </CardContent>
             </Card>
